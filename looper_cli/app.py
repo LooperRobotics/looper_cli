@@ -11,6 +11,8 @@ from looper_cli.device import (
     dds_set,
     dds_show,
     fetch_logs,
+    insightfull_pause,
+    insightfull_start,
     monitor_status,
     network_set,
     network_show,
@@ -95,6 +97,14 @@ def command_system_sync_time(args) -> int:
     return system_sync_time(args, DeviceSession(args.device_base_url))
 
 
+def command_insight_start(args) -> int:
+    return insightfull_start(args, DeviceSession(args.device_base_url))
+
+
+def command_insight_pause(args) -> int:
+    return insightfull_pause(args, DeviceSession(args.device_base_url))
+
+
 def help_command(args) -> int:
     parser = build_parser()
     if args.topic:
@@ -162,6 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
             "calibration",
             "logs",
             "time",
+            "insight",
         ],
     )
     help_parser.set_defaults(func=help_command)
@@ -337,7 +348,18 @@ def build_parser() -> argparse.ArgumentParser:
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
     time_sync_parser.set_defaults(func=command_system_sync_time)
-
+    insight_parser = subparsers.add_parser("insight", help="Insightfull control commands")
+    insight_subparsers = insight_parser.add_subparsers(
+        dest="insight_command", required=True
+    )
+    insight_start_parser = insight_subparsers.add_parser(
+        "start", help="Start insightfull"
+    )
+    insight_start_parser.set_defaults(func=command_insight_start)
+    insight_pause_parser = insight_subparsers.add_parser(
+        "pause", help="Pause insightfull"
+    )
+    insight_pause_parser.set_defaults(func=command_insight_pause)
     calibration_parser = subparsers.add_parser(
         "calibration", help="Calibration mode and parameter commands"
     )
