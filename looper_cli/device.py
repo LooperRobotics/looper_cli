@@ -423,13 +423,23 @@ def reboot_device(args, session: DeviceSession) -> int:
         + (f"Last errors: {'; '.join(errors[:3])}" if errors else "")
     )
 
-
 def insightfull_start(_arg, session: DeviceSession) -> int:
     payload = _device_json_post(session, INSIGHT_START_ENDPOINT, {})
-    if not isinstance(payload, dict) or not payload.get("success"):
-        raise LooperCliError("Failed to start insightfull")
-    log(payload.get("message") or "Insightfull started successfully")
-    return 0
+    if not isinstance(payload, dict):
+        raise LooperCliError("Invalid response from device")
+    
+    success = payload.get("success", False)
+    msg = payload.get("message", "")
+    
+    if success:
+        log(msg or "Insightfull started successfully")
+        return 0
+    else:
+        if "already running" in msg.lower():
+            log(msg)
+            return 0
+        else:
+            raise LooperCliError(f"Failed to start insightfull: {msg}")
 
 
 def insightfull_stop(_arg, session: DeviceSession) -> int:
