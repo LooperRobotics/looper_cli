@@ -11,7 +11,7 @@ from looper_cli.device import (
     dds_set,
     dds_show,
     fetch_logs,
-    insightfull_pause,
+    insightfull_stop,
     insightfull_start,
     monitor_status,
     network_set,
@@ -101,8 +101,8 @@ def command_insight_start(args) -> int:
     return insightfull_start(args, DeviceSession(args.device_base_url))
 
 
-def command_insight_pause(args) -> int:
-    return insightfull_pause(args, DeviceSession(args.device_base_url))
+def command_insight_stop(args) -> int:
+    return insightfull_stop(args, DeviceSession(args.device_base_url))
 
 
 def help_command(args) -> int:
@@ -356,10 +356,10 @@ def build_parser() -> argparse.ArgumentParser:
         "start", help="Start insightfull"
     )
     insight_start_parser.set_defaults(func=command_insight_start)
-    insight_pause_parser = insight_subparsers.add_parser(
-        "pause", help="Pause insightfull"
+    insight_stop_parser = insight_subparsers.add_parser(
+        "stop", help="Stop insightfull"
     )
-    insight_pause_parser.set_defaults(func=command_insight_pause)
+    insight_stop_parser.set_defaults(func=command_insight_stop)
     calibration_parser = subparsers.add_parser(
         "calibration", help="Calibration mode and parameter commands"
     )
