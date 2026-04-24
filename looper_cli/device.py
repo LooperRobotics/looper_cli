@@ -48,7 +48,7 @@ SYSTEM_INFO_ENDPOINT = "/api/system-info"
 TIME_SYNC_PING_ENDPOINT = "/api/time-sync/ping"
 SET_TIME_V2_ENDPOINT = "/api/set-time-v2"
 INSIGHT_START_ENDPOINT = "/api/insight-start"
-INSIGHT_PAUSE_ENDPOINT = "/api/insight-pause"
+INSIGHT_STOP_ENDPOINT = "/api/insight-stop"
 
 
 def normalize_device_base_url(url: str) -> str:
@@ -423,20 +423,30 @@ def reboot_device(args, session: DeviceSession) -> int:
         + (f"Last errors: {'; '.join(errors[:3])}" if errors else "")
     )
 
-
 def insightfull_start(_arg, session: DeviceSession) -> int:
     payload = _device_json_post(session, INSIGHT_START_ENDPOINT, {})
-    if not isinstance(payload, dict) or not payload.get("success"):
-        raise LooperCliError("Failed to start insightfull")
-    log(payload.get("message") or "Insightfull started successfully")
-    return 0
+    if not isinstance(payload, dict):
+        raise LooperCliError("Invalid response from device")
+    
+    success = payload.get("success", False)
+    msg = payload.get("message", "")
+    
+    if success:
+        log(msg or "Insightfull started successfully")
+        return 0
+    else:
+        if "already running" in msg.lower():
+            log(msg)
+            return 0
+        else:
+            raise LooperCliError(f"Failed to start insightfull: {msg}")
 
 
-def insightfull_pause(_arg, session: DeviceSession) -> int:
-    payload = _device_json_post(session, INSIGHT_PAUSE_ENDPOINT, {})
+def insightfull_stop(_arg, session: DeviceSession) -> int:
+    payload = _device_json_post(session, INSIGHT_STOP_ENDPOINT, {})
     if not isinstance(payload, dict) or not payload.get("success"):
-        raise LooperCliError("Failed to pause insightfull")
-    log(payload.get("message") or "Insightfull paused successfully")
+        raise LooperCliError("Failed to stop insightfull")
+    log(payload.get("message") or "Insightfull stopped successfully")
     return 0
 
 
