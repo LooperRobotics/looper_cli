@@ -674,7 +674,7 @@ def build_parser() -> argparse.ArgumentParser:
     upgrade_parser.add_argument(
         "--watch-seconds",
         type=int,
-        default=600,
+        default=6000,
         help="Seconds to keep streaming device-side OTA logs after the update starts",
     )
     upgrade_parser.add_argument(
