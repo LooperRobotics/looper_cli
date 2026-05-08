@@ -141,6 +141,62 @@ def normalize_version(version: str) -> List[int]:
     return parts
 
 
+def normalize_manifest(manifest) -> dict:
+    if not manifest:
+        return {}
+    if isinstance(manifest, str):
+        try:
+            return json.loads(manifest)
+        except json.JSONDecodeError:
+            return {}
+    if isinstance(manifest, dict):
+        return manifest
+    return {}
+
+
+def compare_version(current: str, target: str) -> int:
+    def tokenize(value: str) -> List[str]:
+        return re.findall(r"[0-9]+|[A-Za-z]+", str(value or "").strip())
+
+    left = tokenize(current)
+    right = tokenize(target)
+    max_length = max(len(left), len(right))
+
+    for index in range(max_length):
+        left_token = left[index] if index < len(left) else "0"
+        right_token = right[index] if index < len(right) else "0"
+
+        try:
+            left_number = int(left_token)
+            left_is_number = True
+        except ValueError:
+            left_number = 0
+            left_is_number = False
+
+        try:
+            right_number = int(right_token)
+            right_is_number = True
+        except ValueError:
+            right_number = 0
+            right_is_number = False
+
+        if left_is_number and right_is_number:
+            if left_number > right_number:
+                return 1
+            if left_number < right_number:
+                return -1
+            continue
+
+        left_value = str(left_token).lower()
+        right_value = str(right_token).lower()
+        if left_value > right_value:
+            return 1
+        if left_value < right_value:
+            return -1
+
+    return 0
+
+
 def filter_release_records(records: Iterable[dict]) -> List[dict]:
     release_records = [record for record in records if record.get("release") is True]
     return release_records or list(records)
@@ -162,7 +218,7 @@ def pick_latest_record(records: List[dict]) -> dict:
 
 def find_record_by_version(records: List[dict], version: str) -> dict:
     for record in records:
-        manifest = record.get("manifest") or {}
+        manifest = normalize_manifest(record.get("manifest"))
         if manifest.get("version") == version:
             return record
     raise OtaError(f"Version {version} not found")
@@ -186,6 +242,74 @@ def download_signature_base64(pb_base_url: str, record: dict) -> str:
     with urlopen(request, timeout=120) as response:
         data = response.read()
     return base64.b64encode(data).decode("ascii")
+
+
+def fetch_device_versions(device_base_url: str) -> dict:
+    payload = http_json(f"{device_base_url}/api/ota/device-versions", timeout=10)
+    if not isinstance(payload, dict):
+        raise OtaError("Invalid OTA device versions response")
+    return payload
+
+
+def check_initial_version(device_base_url: str, initial_version: str) -> dict:
+    payload = http_json(
+        f"{device_base_url}/api/ota/initial-version-check",
+        method="POST",
+        data=json.dumps({"initialVersion": initial_version or ""}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        timeout=15,
+    )
+    if not isinstance(payload, dict):
+        raise OtaError("Invalid initial version check response")
+    return payload
+
+
+def filter_firmware_files(
+    record: dict, filenames: List[str], device_versions: dict
+) -> List[str] | None:
+    manifest = normalize_manifest(record.get("manifest"))
+    if not manifest.get("software_version") and not manifest.get("fireware_version"):
+        return None
+
+    filtered_files: List[str] = []
+    software_version = device_versions.get("softwareVersion") or ""
+    fireware_version = device_versions.get("firewareVersion") or ""
+
+    for filename in filenames:
+        if not manifest.get("software_version") and not manifest.get("fireware_version"):
+            return None
+
+        if filename.startswith("looperapp_"):
+            log(
+                f"Skip {filename}: raw package is skipped during incremental selection"
+            )
+            continue
+
+        if (
+            filename.startswith("update_")
+            and manifest.get("software_version")
+            and software_version
+            and compare_version(software_version, manifest["software_version"]) >= 0
+        ):
+            log(
+                f"Skip {filename}: current software version {software_version} >= target {manifest['software_version']}"
+            )
+            continue
+
+        if (
+            filename.startswith("all_in_one")
+            and manifest.get("fireware_version")
+            and fireware_version
+            and compare_version(fireware_version, manifest["fireware_version"]) >= 0
+        ):
+            log(
+                f"Skip {filename}: current fireware version {fireware_version} >= target {manifest['fireware_version']}"
+            )
+            continue
+
+        filtered_files.append(filename)
+
+    return filtered_files
 
 
 class DeviceLogStreamer:
@@ -356,7 +480,7 @@ def upload_firmware_file(
     task_id: str,
     signature_b64: str,
 ) -> None:
-    manifest = json.dumps(record.get("manifest") or {}, separators=(",", ":"))
+    manifest = json.dumps(normalize_manifest(record.get("manifest")), separators=(",", ":"))
     file_url = build_file_url(pb_base_url, record, filename)
     log(f"Streaming firmware: {filename}")
     request = Request(file_url, headers=DEFAULT_HEADERS)
@@ -479,7 +603,7 @@ def resolve_device_base_url(configured_url: Optional[str] = None) -> str:
 
 
 def describe_record(record: dict) -> List[str]:
-    manifest = record.get("manifest") or {}
+    manifest = normalize_manifest(record.get("manifest"))
     version = manifest.get("version", "unknown")
     release_date = manifest.get("releaseDate") or record.get("created", "")
     description = " ".join((manifest.get("description") or "").strip().split())
@@ -541,9 +665,9 @@ def run_upgrade(args) -> int:
         else find_record_by_version(records, args.version)
     )
 
-    manifest = target.get("manifest") or {}
+    manifest = normalize_manifest(target.get("manifest"))
     version = manifest.get("version", "unknown")
-    firmware_files = target.get("firmware") or []
+    firmware_files = [filename for filename in (target.get("firmware") or []) if filename]
     if not firmware_files:
         raise OtaError(f"No firmware files found for version {version}")
 
@@ -553,7 +677,34 @@ def run_upgrade(args) -> int:
         log(f"Current firmware version: {current}")
     log(f"Target firmware version: {version}")
     log(f"Release record ID: {target.get('id')}")
-    log(f"Firmware package count: {len(firmware_files)}")
+    initial_version_result = check_initial_version(
+        device_base_url, manifest.get("initial_version", "")
+    )
+    if initial_version_result.get("forceFullDownload"):
+        log(
+            "initial_version updated: "
+            f"{initial_version_result.get('currentVersion') or 'empty'} -> "
+            f"{initial_version_result.get('incomingVersion') or ''}, all files will be downloaded"
+        )
+        files_to_download = firmware_files
+    else:
+        log("Fetching current device versions...")
+        device_versions = fetch_device_versions(device_base_url)
+        log(
+            "Current software version: "
+            f"{device_versions.get('softwareVersion') or 'unknown'}, "
+            f"fireware version: {device_versions.get('firewareVersion') or 'unknown'}"
+        )
+        files_to_download = filter_firmware_files(
+            target, firmware_files, device_versions
+        )
+
+    if files_to_download is None or not files_to_download:
+        raise OtaError(
+            "No files need download; repeated upgrades or downgrades are not supported"
+        )
+
+    log(f"Firmware package count: {len(files_to_download)}")
     if not args.yes:
         answer = input("Proceed with OTA upgrade? [y/N]: ").strip().lower()
         if answer not in {"y", "yes"}:
@@ -569,8 +720,8 @@ def run_upgrade(args) -> int:
 
     try:
         signature_b64 = download_signature_base64(args.pb_base_url, target)
-        for index, filename in enumerate(firmware_files, start=1):
-            log(f"Uploading file {index}/{len(firmware_files)}")
+        for index, filename in enumerate(files_to_download, start=1):
+            log(f"Downloading and uploading file: {filename} ({index}/{len(files_to_download)})")
             upload_firmware_file(
                 args.pb_base_url,
                 device_base_url,
@@ -674,7 +825,7 @@ def build_parser() -> argparse.ArgumentParser:
     upgrade_parser.add_argument(
         "--watch-seconds",
         type=int,
-        default=6000,
+        default=600,
         help="Seconds to keep streaming device-side OTA logs after the update starts",
     )
     upgrade_parser.add_argument(

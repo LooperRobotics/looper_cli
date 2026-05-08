@@ -2,104 +2,234 @@
 
 ## Overview
 
-`looper_cli.py` is the primary command-line utility for device management on LooperRobotics Insight Series products.
+`looper_cli.py` is the official command-line utility for managing LooperRobotics Insight Series devices.
 
-The CLI is designed as an extensible foundation for firmware management and future device operations, including OTA workflows, device lifecycle controls, calibration workflows, parameter management, and log retrieval.
+It can be used for device inspection, OTA upgrades, and common maintenance tasks when the Web management page is unavailable, when scripted execution is needed, or when device operations should be repeatable.
 
-Current implementation status:
+Current capability coverage:
 
-- Fully supported: device discovery, firmware version inspection, OTA release listing, OTA firmware upgrade
-- Fully supported: calibration mode status, calibration mode enable/disable
-- Fully supported: IP configuration read/update, DDS configuration read/update, system monitor status, system time inspection, system time sync
-- Best-effort integration: system reboot, calibration parameter upload, system log retrieval
+- Device address auto-discovery and current firmware version inspection
+- Web-dashboard-aligned `softwareVersion` and `firewareVersion` inspection
+- OTA release listing and OTA upgrade
+- Network configuration read and update
+- DDS configuration read and update
+- System monitor, system info, and device time inspection
+- Device time synchronization with the local machine
+- Looper reboot and Insightfull start, pause, stop
+- Restore-to-factory shallow and deep recovery
+- Calibration mode status, switching, and calibration parameter upload
+- System log retrieval, with diagnostic snapshot fallback when the log API is unavailable
+
+## Version Commit Mapping
+
+Versions `1.2.3` and earlier correspond to commit: `d5efdabb2088c735a3592ab7a29e274e2e039a8c`
+
+Versions `1.2.4` through `1.2.5` correspond to commit:
 
 ## Repository Layout
 
-- `looper_cli.py`: primary CLI entrypoint
-- `looper_cli/`: modular application package
+- `looper_cli.py`: CLI entry script
+- `looper_cli/`: command parsing, device operations, OTA, HTTP, output, and error handling modules
 - `README.md`: English documentation
 - `README_cn.md`: Chinese documentation
 
-## Architecture
+## Quick Start
 
-The CLI has been refactored from a single-purpose OTA script into a modular package so that future device commands can be added without continuing to grow a single file.
+Show top-level help:
 
-Current modules:
+```bash
+python3 looper_cli.py --help
+python3 looper_cli.py help
+```
 
-- `looper_cli.app`: parser setup and command routing
-- `looper_cli.device`: device discovery and device-oriented command handlers
-- `looper_cli.ota`: OTA release discovery, upload, and update logic
-- `looper_cli.http`: shared HTTP request utilities
-- `looper_cli.output`: terminal logging and inline progress rendering
-- `looper_cli.errors`: shared exception types
+Show help for a command or subcommand:
 
-## Device Addressing
+```bash
+python3 looper_cli.py help ota
+python3 looper_cli.py help ota upgrade
+python3 looper_cli.py help network set
+python3 looper_cli.py help restore
+```
+
+Show version:
+
+```bash
+python3 looper_cli.py --version
+```
+
+## Device Address Rules
 
 The CLI supports both legacy and current Insight network configurations.
 
-Legacy addressing, typically used before Insight `v1.2.2`:
+Legacy addresses commonly seen before Insight `v1.2.2`:
 
 - `http://192.168.137.100`
 - `http://looperrobotics.net`
 
-Current addressing, typically used for Insight `v1.2.2` and later:
+Current addresses commonly seen on Insight `v1.2.2` and later:
 
 - `http://169.254.10.1`
 - `http://looper.local`
 
-If `--device-base-url` is not supplied, the CLI automatically probes known endpoints and selects the first reachable device.
+If `--device-base-url` is not provided explicitly, the CLI automatically probes these known addresses and uses the first reachable device address.
 
-## Command Model
-
-The new command model is grouped by capability domain.
-
-Structured command groups:
+Examples:
 
 ```bash
-python3 looper_cli.py device current
-python3 looper_cli.py ota list
-python3 looper_cli.py ota upgrade --latest
-python3 looper_cli.py network show
-python3 looper_cli.py network set --segment 20
-python3 looper_cli.py dds show
-python3 looper_cli.py dds set fastrtps
-python3 looper_cli.py monitor status
-python3 looper_cli.py system reboot
-python3 looper_cli.py system info
-python3 looper_cli.py time show
-python3 looper_cli.py time sync
-python3 looper_cli.py calibration status
-python3 looper_cli.py calibration enable
-python3 looper_cli.py calibration disable
-python3 looper_cli.py calibration upload calibration.json
-python3 looper_cli.py logs fetch
+python3 looper_cli.py current
+python3 looper_cli.py --device-base-url http://169.254.10.1 current
 ```
 
-General utility commands:
+## Command Overview
+
+Top-level shortcuts:
 
 ```bash
-python3 looper_cli.py help
-python3 looper_cli.py help ota
-python3 looper_cli.py --version
+# View version information
+python3 looper_cli.py current
+# List existing OTA upgrade packages
+python3 looper_cli.py list
+# Upgrade to the latest released version
+python3 looper_cli.py upgrade --latest
+# Upgrade to a specified version
+python3 looper_cli.py upgrade --version 1.2.3
+```
+
+Grouped commands:
+
+```bash
+python3 looper_cli.py ota list
+python3 looper_cli.py ota upgrade --latest
+
+# View device network information
+python3 looper_cli.py network show
+# Set IP addresses to segment 20 (master 169.254.20.1, slave 169.254.20.2)
+python3 looper_cli.py network set --segment 20
+# Explicitly set master and slave IP addresses
+python3 looper_cli.py network set --master-ip 169.254.20.1 --slave-ip 169.254.20.2
+
+# View the device DDS mode
+python3 looper_cli.py dds show
+# Set the device DDS mode to cyclonedds
+python3 looper_cli.py dds set cyclonedds
+# Set the device DDS mode to fastrtps
+python3 looper_cli.py dds set fastrtps
+
+# View device monitoring information, including CPU and memory usage
+python3 looper_cli.py monitor status
+# Display as JSON
+python3 looper_cli.py monitor status --json
+
+# Reboot the system
+python3 looper_cli.py system reboot
+# Shallow factory recovery: restore to the initial state of the current version
+python3 looper_cli.py system recovery shallow
+# Deep factory recovery: delete all software; OTA upgrade is required again
+python3 looper_cli.py system recovery deep
+# View device information, temperature, and runtime information
+python3 looper_cli.py system info
+
+# View device time information
+python3 looper_cli.py time show
+# Synchronize device time
+python3 looper_cli.py time sync
+
+# Start software
+python3 looper_cli.py insight start
+# Stop software
+python3 looper_cli.py insight stop
+
+# View current calibration mode status
+python3 looper_cli.py calibration status
+# Enable calibration mode
+python3 looper_cli.py calibration enable
+# Disable calibration mode
+python3 looper_cli.py calibration disable
+# Upload calibration file
+python3 looper_cli.py calibration upload calibration.json
+
+# View all monitored device status information
+python3 looper_cli.py logs fetch
+# Write device status information to a file
+python3 looper_cli.py logs fetch --output device_logs.zip
 ```
 
 ## OTA Workflow
 
-The OTA implementation currently performs the following steps:
+When OTA-related commands are executed, the CLI currently works as follows:
 
-1. Resolve the reachable device endpoint
-2. Query the device firmware version
-3. Retrieve OTA release metadata from `https://looper-robotics.com/pb`
-4. Download release assets and signatures from the OTA service
-5. Upload firmware payloads to the device in `4 MB` chunks
-6. Trigger the device OTA start endpoint
-7. Stream device-side OTA logs over WebSocket
+1. Parse and probe reachable device addresses
+2. Query the current device version
+3. Fetch OTA release information from `https://looper-robotics.com/pb`
+4. Download the firmware and signature files for the target version
+5. Upload firmware in `4 MB` chunks
+6. Call the device OTA start API
+7. Continuously stream device-side OTA logs through WebSocket
+
+## Behavioral Notes
+
+`list` and `ota list`
+
+- Equivalent commands
+- Display version, release date, file count, channel, record ID, and release notes
+- Wrap long release notes for terminal readability
+
+`upgrade` and `ota upgrade`
+
+- Equivalent commands
+- Require either `--version <x.y.z>` or `--latest`
+- Support `--watch-seconds` to continue tracking device-side logs after the upgrade starts
+
+`device versions`
+
+- Reads the same version information source as the Web frontend
+- Shows `softwareVersion` and `firewareVersion`
+
+`network set`
+
+- Supports `--segment <n>` and also explicit `--master-ip` plus `--slave-ip`
+- For example, `--segment 20` derives `169.254.20.1` and `169.254.20.2`
+
+`dds set`
+
+- Currently supports `cyclonedds` and `fastrtps`
+
+`monitor status`
+
+- Aggregates CPU, memory, temperature, uptime, IP, and related information
+- `--json` outputs the raw data
+
+`system recovery`, `restore`, and `recovery`
+
+- Point to the same restore-to-factory behavior
+- `shallow` restores the initial state of the current version
+- `deep` deletes software and requires OTA again afterward
+
+`insight stop`
+
+- Uses the same backend behavior as pause on current firmware
+- `looper control insight-stop` is an alias entry for the same action
+
+`calibration upload`
+
+- Used to upload calibration parameter files
+- If a firmware uses a custom upload API, specify it explicitly with `--endpoint`
+
+`logs fetch`
+
+- Attempts known log download APIs first
+- Falls back to a diagnostic snapshot if the device has no available log archive API
+- Supports `--output` to specify the save path
 
 ## API Coverage
 
-The current CLI covers these confirmed device-local API capabilities:
+The current CLI covers these confirmed device-local APIs:
 
 - `/api/version`
+- `/api/reboot`
+- `/api/insight-start`
+- `/api/insight-pause`
+- `/api/system/recovery`
 - `/api/mode`
 - `/api/ip-config`
 - `/api/dds-type`
@@ -113,163 +243,26 @@ The current CLI covers these confirmed device-local API capabilities:
 - `/api/ota/start`
 - `/api/ota/ws`
 
-## Release Notes Display Format
-
-The `list` and `ota list` commands present each OTA release as a structured block with the following fields:
-
-- `Version`
-- `Release Date`
-- `Files`
-- `Channel`
-- `Record ID`
-- `Notes`
-
-The `Notes` field is rendered in wrapped multi-line form so that full published release notes remain visible in terminal output without truncation.
-
-Numbered entries such as `1. 2. 3. 4.` are automatically split into separate readable lines with indentation for better terminal readability.
-
-Example:
-
-```text
-Release [1]
-Version     : 1.2.3
-Release Date: 2026-04-17
-Files       : 6
-Channel     : release
-Record ID   : ugwj5d7wcsg4ysn
-Notes       : 1. Integrated a Log Rotation mechanism...
-              2. Optimized VIO logic...
-```
-
-## Command Behavior Notes
-
-`system reboot`
-
-- Attempts a set of known reboot API patterns on the current device firmware
-- Returns a clear error if the running firmware does not expose a supported reboot endpoint
-
-`calibration status`, `calibration enable`, `calibration disable`
-
-- Integrated with the current device calibration mode API at `/api/mode`
-
-`calibration upload`
-
-- Attempts common calibration upload API paths
-- Supports `--endpoint` when a device firmware exposes a custom upload path
-
-`logs fetch`
-
-- Attempts known log download API paths first
-- If no native log download endpoint is available, it falls back to a diagnostic system snapshot containing version, time, IP configuration, DDS type, calibration mode, CPU, memory, and system information
-
-`network show`, `network set`
-
-- Integrated with `/api/ip-config`
-- Supports either `--segment <n>` or explicit `--master-ip` and `--slave-ip`
-
-`dds show`, `dds set`
-
-- Integrated with `/api/dds-type`
-
-`monitor status`
-
-- Aggregates `/api/cpu-monitor`, `/api/memory-monitor`, `/api/system-info`, and `/api/ip-config`
-
-`time show`, `time sync`
-
-- `time show` reads `/api/system-time`
-- `time sync` uses `/api/time-sync/ping` and `/api/set-time-v2`
-
-## Examples
-
-Show current device information:
-
-```bash
-python3 looper_cli.py device current
-```
-
-Show network and DDS configuration:
-
-```bash
-python3 looper_cli.py network show
-python3 looper_cli.py dds show
-```
-
-Update network segment and DDS type:
-
-```bash
-python3 looper_cli.py network set --segment 20
-python3 looper_cli.py dds set cyclonedds
-```
-
-Show live system summary and device time:
-
-```bash
-python3 looper_cli.py monitor status
-python3 looper_cli.py time show
-```
-
-List published firmware releases:
-
-```bash
-python3 looper_cli.py ota list
-```
-
-Upgrade to a specific release:
-
-```bash
-python3 looper_cli.py ota upgrade --version 1.2.3
-```
-
-Upgrade to the latest published release without confirmation prompt:
-
-```bash
-python3 looper_cli.py ota upgrade --latest -y
-```
-
-Force a specific device endpoint:
-
-```bash
-python3 looper_cli.py ota list --device-base-url http://169.254.10.1
-```
-
-Fetch logs into a file:
-
-```bash
-python3 looper_cli.py logs fetch --output insight_snapshot.json
-```
-
-Upload calibration parameters through an explicit endpoint:
-
-```bash
-python3 looper_cli.py calibration upload calibration.json --endpoint /api/calibration/upload
-```
-
-## Operational Guidance
-
-- Ensure stable power during the full OTA process
-- Do not disconnect the device network link while upload or flashing is in progress
-- Be aware that some firmware releases may change the device IP address or hostname after upgrade
-- Some installation stages may continue in the background after visible OTA logs become quiet
-- Prefer running `device current` or `ota list` before initiating an upgrade
-
 ## Troubleshooting
 
-If the CLI takes longer than expected to respond:
+- First confirm that the current host can access the device network
+- Run `python3 looper_cli.py current` to confirm which address auto-discovery selected
+- Use `--device-base-url` to explicitly specify the device address when auto-discovery is not suitable
+- Confirm that the device is not currently occupied by another OTA task
+- Keep power and network stable during OTA upload and installation
 
-- Verify the host has network connectivity to the device
-- Use `python3 looper_cli.py device current` to confirm which endpoint is reachable
-- If necessary, specify the endpoint explicitly with `--device-base-url`
-- Confirm the device is not already busy with another OTA task
+## Download CLI Through Device API
 
-## Execution Location
-
-Run all commands from the `looper_scripts` directory, or invoke them by full path from that directory tree.
-
-Examples:
+The backend provides a CLI download API. You can pull the full CLI package directly from the device:
 
 ```bash
-cd /home/dm/looper_scripts
-python3 looper_cli.py --version
-python3 looper_cli.py ota list
+curl -L http://<device-host>:8888/api/looper-cli/download -o looper_cli.tar.gz
+tar -xzf looper_cli.tar.gz
+python3 looper_cli/looper_cli.py --help
+```
+
+To inspect download information first:
+
+```bash
+curl http://<device-host>:8888/api/looper-cli
 ```

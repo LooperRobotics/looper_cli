@@ -29,8 +29,9 @@ CALIBRATION_UPLOAD_CANDIDATES = [
     "/api/calibration-params/upload",
 ]
 REBOOT_ENDPOINT_CANDIDATES = [
-    "/api/system/reboot",
     "/api/reboot",
+    "/api/cli-reboot",
+    "/api/system/reboot",
     "/api/system-reboot",
 ]
 LOG_DOWNLOAD_CANDIDATES = [
@@ -47,8 +48,16 @@ MEMORY_MONITOR_ENDPOINT = "/api/memory-monitor"
 SYSTEM_INFO_ENDPOINT = "/api/system-info"
 TIME_SYNC_PING_ENDPOINT = "/api/time-sync/ping"
 SET_TIME_V2_ENDPOINT = "/api/set-time-v2"
-INSIGHT_START_ENDPOINT = "/api/insight-start"
-INSIGHT_STOP_ENDPOINT = "/api/insight-stop"
+INSIGHT_START_ENDPOINT_CANDIDATES = [
+    "/api/insight-start",
+    "/api/cli-insight-start",
+]
+INSIGHT_PAUSE_ENDPOINT_CANDIDATES = [
+    "/api/insight-pause",
+    "/api/cli-insight-pause",
+]
+OTA_DEVICE_VERSIONS_ENDPOINT = "/api/ota/device-versions"
+SYSTEM_RECOVERY_ENDPOINT = "/api/system/recovery"
 
 
 def normalize_device_base_url(url: str) -> str:
@@ -115,10 +124,41 @@ class DeviceSession:
         return self.current_version
 
 
+def get_ota_device_versions(session: DeviceSession) -> dict:
+    payload = _device_json_get(session, OTA_DEVICE_VERSIONS_ENDPOINT)
+    if not isinstance(payload, dict):
+        raise LooperCliError("Failed to read OTA device versions")
+    return {
+        "softwareVersion": payload.get("softwareVersion") or "",
+        "firewareVersion": payload.get("firewareVersion") or "",
+    }
+
+
+def _display_version(value: object) -> str:
+    text = str(value or "").strip()
+    return text or "--"
+
+
 def print_current_status(session: DeviceSession) -> int:
+    ota_versions = get_ota_device_versions(session)
     print(PRODUCT_NAME)
     print(f"Device Endpoint : {session.ensure_resolved()}")
-    print(f"Current Version : {session.ensure_version() or 'unknown'}")
+    print(f"Current Version : {_display_version(session.ensure_version() or 'unknown')}")
+    print(f"softwareVersion: {_display_version(ota_versions.get('softwareVersion'))}")
+    print(f"firewareVersion: {_display_version(ota_versions.get('firewareVersion'))}")
+    return 0
+
+
+def device_versions_show(_args, session: DeviceSession) -> int:
+    payload = get_ota_device_versions(session)
+    _print_key_values(
+        "Device Versions",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("softwareVersion", _display_version(payload.get("softwareVersion"))),
+            ("firewareVersion", _display_version(payload.get("firewareVersion"))),
+        ],
+    )
     return 0
 
 
@@ -259,6 +299,7 @@ def monitor_status(args, session: DeviceSession) -> int:
         "memoryMonitor": _device_json_get(session, MEMORY_MONITOR_ENDPOINT),
         "systemInfo": _device_json_get(session, SYSTEM_INFO_ENDPOINT),
         "ipConfig": _device_json_get(session, IP_CONFIG_ENDPOINT),
+        "deviceVersions": get_ota_device_versions(session),
     }
     if args.json:
         print_json(payload)
@@ -268,6 +309,7 @@ def monitor_status(args, session: DeviceSession) -> int:
     memory_data = payload["memoryMonitor"] or {}
     system_data = payload["systemInfo"] or {}
     ip_data = (payload["ipConfig"] or {}).get("data") or {}
+    version_data = payload["deviceVersions"] or {}
     _print_key_values(
         "System Monitor",
         [
@@ -277,6 +319,8 @@ def monitor_status(args, session: DeviceSession) -> int:
             ("Temperature", f"{system_data.get('temperature', 0):.1f}C"),
             ("Uptime", system_data.get("uptimeStr", "unknown")),
             ("Master IP", ip_data.get("masterIp", "unknown")),
+            ("softwareVersion", _display_version(version_data.get("softwareVersion"))),
+            ("firewareVersion", _display_version(version_data.get("firewareVersion"))),
         ],
     )
     return 0
@@ -423,30 +467,81 @@ def reboot_device(args, session: DeviceSession) -> int:
         + (f"Last errors: {'; '.join(errors[:3])}" if errors else "")
     )
 
+
+def _try_post_candidates(
+    session: DeviceSession, candidates: list[str], payload: dict, action_name: str
+):
+    errors = []
+    for path in candidates:
+        try:
+            response = _device_json_post(session, path, payload)
+            if not isinstance(response, dict) or response.get("success", True):
+                return path, response
+            errors.append(f"{path}: {response.get('message', 'request rejected')}")
+        except HTTPError as exc:
+            if exc.code == 404:
+                continue
+            message = exc.read().decode("utf-8", "replace")
+            errors.append(f"{path}: HTTP {exc.code} {message or exc.reason}")
+        except (URLError, OSError, TimeoutError) as exc:
+            errors.append(f"{path}: {exc}")
+    raise LooperCliError(
+        f"Failed to {action_name}. "
+        + (f"Last errors: {'; '.join(errors[:3])}" if errors else "No supported endpoint detected.")
+    )
+
+
 def insightfull_start(_arg, session: DeviceSession) -> int:
-    payload = _device_json_post(session, INSIGHT_START_ENDPOINT, {})
-    if not isinstance(payload, dict):
-        raise LooperCliError("Invalid response from device")
-    
-    success = payload.get("success", False)
-    msg = payload.get("message", "")
-    
-    if success:
-        log(msg or "Insightfull started successfully")
-        return 0
+    path, payload = _try_post_candidates(
+        session, INSIGHT_START_ENDPOINT_CANDIDATES, {}, "start insightfull"
+    )
+    message = payload.get("message") if isinstance(payload, dict) else None
+    log(message or f"Insightfull started successfully via {path}")
+    return 0
+
+
+def insightfull_pause(_arg, session: DeviceSession) -> int:
+    path, payload = _try_post_candidates(
+        session, INSIGHT_PAUSE_ENDPOINT_CANDIDATES, {}, "pause insightfull"
+    )
+    message = payload.get("message") if isinstance(payload, dict) else None
+    log(message or f"Insightfull paused successfully via {path}")
+    return 0
+
+
+def system_recovery(args, session: DeviceSession) -> int:
+    mode = str(args.mode or "").strip().lower()
+    if mode not in {"shallow", "deep"}:
+        raise LooperCliError("Recovery mode must be either 'shallow' or 'deep'")
+
+    if mode == "shallow":
+        description = "restore the initial state of the current version"
     else:
-        if "already running" in msg.lower():
-            log(msg)
-            return 0
-        else:
-            raise LooperCliError(f"Failed to start insightfull: {msg}")
+        description = "delete all software and require OTA upgrade again"
 
+    if not args.yes:
+        answer = (
+            input(f"Proceed with {mode} recovery and {description}? [y/N]: ")
+            .strip()
+            .lower()
+        )
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
 
-def insightfull_stop(_arg, session: DeviceSession) -> int:
-    payload = _device_json_post(session, INSIGHT_STOP_ENDPOINT, {})
-    if not isinstance(payload, dict) or not payload.get("success"):
-        raise LooperCliError("Failed to stop insightfull")
-    log(payload.get("message") or "Insightfull stopped successfully")
+    payload = _device_json_post(
+        session,
+        SYSTEM_RECOVERY_ENDPOINT,
+        {"mode": mode},
+        timeout=30.0,
+    )
+    if isinstance(payload, dict) and not payload.get("success", True):
+        raise LooperCliError(
+            f"{mode} recovery request failed: {payload.get('message') or 'request rejected'}"
+        )
+
+    message = payload.get("message") if isinstance(payload, dict) else None
+    log(message or f"{mode} recovery started successfully")
     return 0
 
 
