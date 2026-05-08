@@ -24,9 +24,9 @@
 
 ## 版本commit对应信息
 
-1.2.3版本及以前的版本对应commit：d5efdabb2088c735a3592ab7a29e274e2e039a8c
+1.2.3版本及以前的版本对应commit：`d5efdabb2088c735a3592ab7a29e274e2e039a8c`
 
-1.2.4-1.2.5版本对应commit：
+1.2.4-1.2.5版本对应commit：`5930bb25a6d7f2902c6e89fe80f62007195a16f4`
 
 
 

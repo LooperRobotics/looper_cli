@@ -24,7 +24,7 @@ Current capability coverage:
 
 Versions `1.2.3` and earlier correspond to commit: `d5efdabb2088c735a3592ab7a29e274e2e039a8c`
 
-Versions `1.2.4` through `1.2.5` correspond to commit:
+Versions `1.2.4` through `1.2.5` correspond to commit:`5930bb25a6d7f2902c6e89fe80f62007195a16f4`
 
 ## Repository Layout
 
