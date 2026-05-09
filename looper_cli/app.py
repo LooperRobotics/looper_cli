@@ -23,6 +23,8 @@ from looper_cli.device import (
     system_info_show,
     system_sync_time,
     system_time_show,
+    time_sync_set_enabled,
+    time_sync_status,
 )
 from looper_cli.errors import CommandNotImplementedError, LooperCliError
 from looper_cli.ota import print_release_list, run_ota_upgrade
@@ -141,6 +143,18 @@ def command_system_info_show(args) -> int:
 
 def command_system_sync_time(args) -> int:
     return system_sync_time(args, DeviceSession(args.device_base_url))
+
+
+def command_time_sync_status(args) -> int:
+    return time_sync_status(args, DeviceSession(args.device_base_url))
+
+
+def command_time_sync_enable(args) -> int:
+    return time_sync_set_enabled(args, DeviceSession(args.device_base_url), enabled=True)
+
+
+def command_time_sync_disable(args) -> int:
+    return time_sync_set_enabled(args, DeviceSession(args.device_base_url), enabled=False)
 
 
 def command_system_recovery(args) -> int:
@@ -610,6 +624,9 @@ def build_parser() -> argparse.ArgumentParser:
             "Show the device time or synchronize the device clock with the local host.",
             [
                 "python3 looper_cli.py time show",
+                "python3 looper_cli.py time status",
+                "python3 looper_cli.py time enable -y",
+                "python3 looper_cli.py time disable -y",
                 "python3 looper_cli.py time sync -y",
                 "python3 looper_cli.py time sync --samples 30 --interval-ms 50 -y",
             ],
@@ -631,6 +648,45 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Print the raw time payload as JSON"
     )
     time_show_parser.set_defaults(func=command_system_time_show)
+    time_status_parser = time_subparsers.add_parser(
+        "status",
+        help="Show NTP time synchronization status",
+        **_help_text(
+            "Show the same sync and enable status used by the Web Time Sync page.",
+            [
+                "python3 looper_cli.py time status",
+                "python3 looper_cli.py time status --json",
+            ],
+        ),
+    )
+    time_status_parser.add_argument(
+        "--json", action="store_true", help="Print the raw time sync payload as JSON"
+    )
+    time_status_parser.set_defaults(func=command_time_sync_status)
+    time_enable_parser = time_subparsers.add_parser(
+        "enable",
+        help="Enable NTP time synchronization",
+        **_help_text(
+            "Enable the device NTP synchronization switch used by the Web Time Sync page.",
+            ["python3 looper_cli.py time enable -y"],
+        ),
+    )
+    time_enable_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    time_enable_parser.set_defaults(func=command_time_sync_enable)
+    time_disable_parser = time_subparsers.add_parser(
+        "disable",
+        help="Disable NTP time synchronization",
+        **_help_text(
+            "Disable the device NTP synchronization switch used by the Web Time Sync page.",
+            ["python3 looper_cli.py time disable -y"],
+        ),
+    )
+    time_disable_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    time_disable_parser.set_defaults(func=command_time_sync_disable)
     time_sync_parser = time_subparsers.add_parser(
         "sync",
         help="Synchronize the device clock with the local host",

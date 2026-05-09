@@ -138,6 +138,11 @@ python3 looper_cli.py system info
 
 # 查看设备信息
 python3 looper_cli.py time show
+# 查看 NTP 时间同步状态
+python3 looper_cli.py time status
+# 开启或关闭 NTP 时间同步
+python3 looper_cli.py time enable
+python3 looper_cli.py time disable
 # 进行设备时间同步
 python3 looper_cli.py time sync
 
@@ -206,7 +211,14 @@ python3 looper_cli.py logs fetch --output device_logs.zip
 `monitor status`
 
 - 汇总 CPU、内存、温度、运行时长和 IP 等信息
+- 包含与 Web Time Sync 页面相同的时间同步状态
 - `--json` 会输出原始数据
+
+`time status`、`time enable` 和 `time disable`
+
+- 对齐 Web Time Sync 页面
+- 读取和写入 `/api/time-sync-setting`
+- `time status --json` 会输出原始响应数据
 
 `system recovery`、`restore`、`recovery`
 
@@ -246,6 +258,7 @@ python3 looper_cli.py logs fetch --output device_logs.zip
 - `/api/cpu-monitor`
 - `/api/memory-monitor`
 - `/api/system-info`
+- `/api/time-sync-setting`
 - `/api/time-sync/ping`
 - `/api/set-time-v2`
 - `/api/ota/upload`

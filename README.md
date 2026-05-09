@@ -131,6 +131,11 @@ python3 looper_cli.py system info
 
 # View device time information
 python3 looper_cli.py time show
+# View NTP time synchronization status
+python3 looper_cli.py time status
+# Enable or disable NTP time synchronization
+python3 looper_cli.py time enable
+python3 looper_cli.py time disable
 # Synchronize device time
 python3 looper_cli.py time sync
 
@@ -197,7 +202,14 @@ When OTA-related commands are executed, the CLI currently works as follows:
 `monitor status`
 
 - Aggregates CPU, memory, temperature, uptime, IP, and related information
+- Includes the same time sync status used by the Web Time Sync page
 - `--json` outputs the raw data
+
+`time status`, `time enable`, and `time disable`
+
+- Mirror the Web Time Sync page
+- Read and write `/api/time-sync-setting`
+- `time status --json` outputs the raw response payload
 
 `system recovery`, `restore`, and `recovery`
 
@@ -237,6 +249,7 @@ The current CLI covers these confirmed device-local APIs:
 - `/api/cpu-monitor`
 - `/api/memory-monitor`
 - `/api/system-info`
+- `/api/time-sync-setting`
 - `/api/time-sync/ping`
 - `/api/set-time-v2`
 - `/api/ota/upload`

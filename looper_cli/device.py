@@ -47,6 +47,7 @@ CPU_MONITOR_ENDPOINT = "/api/cpu-monitor"
 MEMORY_MONITOR_ENDPOINT = "/api/memory-monitor"
 SYSTEM_INFO_ENDPOINT = "/api/system-info"
 TIME_SYNC_PING_ENDPOINT = "/api/time-sync/ping"
+TIME_SYNC_SETTING_ENDPOINT = "/api/time-sync-setting"
 SET_TIME_V2_ENDPOINT = "/api/set-time-v2"
 INSIGHT_START_ENDPOINT_CANDIDATES = [
     "/api/insight-start",
@@ -299,6 +300,7 @@ def monitor_status(args, session: DeviceSession) -> int:
         "memoryMonitor": _device_json_get(session, MEMORY_MONITOR_ENDPOINT),
         "systemInfo": _device_json_get(session, SYSTEM_INFO_ENDPOINT),
         "ipConfig": _device_json_get(session, IP_CONFIG_ENDPOINT),
+        "timeSyncSetting": _device_json_get(session, TIME_SYNC_SETTING_ENDPOINT),
         "deviceVersions": get_ota_device_versions(session),
     }
     if args.json:
@@ -309,6 +311,7 @@ def monitor_status(args, session: DeviceSession) -> int:
     memory_data = payload["memoryMonitor"] or {}
     system_data = payload["systemInfo"] or {}
     ip_data = (payload["ipConfig"] or {}).get("data") or {}
+    time_sync_data = (payload["timeSyncSetting"] or {}).get("data") or {}
     version_data = payload["deviceVersions"] or {}
     _print_key_values(
         "System Monitor",
@@ -319,6 +322,8 @@ def monitor_status(args, session: DeviceSession) -> int:
             ("Temperature", f"{system_data.get('temperature', 0):.1f}C"),
             ("Uptime", system_data.get("uptimeStr", "unknown")),
             ("Master IP", ip_data.get("masterIp", "unknown")),
+            ("Time Sync", "success" if time_sync_data.get("synced") else "failed"),
+            ("Time Sync Enable", "on" if time_sync_data.get("enabled") else "off"),
             ("softwareVersion", _display_version(version_data.get("softwareVersion"))),
             ("firewareVersion", _display_version(version_data.get("firewareVersion"))),
         ],
@@ -338,6 +343,63 @@ def system_time_show(args, session: DeviceSession) -> int:
             ("Formatted", payload.get("formatted", "unknown")),
             ("Timestamp", payload.get("timestamp", "unknown")),
             ("Timestamp Nanos", payload.get("timestampNanos", "unknown")),
+        ],
+    )
+    return 0
+
+
+def time_sync_status(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, TIME_SYNC_SETTING_ENDPOINT)
+    if not isinstance(payload, dict) or not payload.get("success"):
+        raise LooperCliError("Failed to read time sync status")
+    if args.json:
+        print_json(payload)
+        return 0
+
+    data = payload.get("data") or {}
+    _print_key_values(
+        "Time Synchronization",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Sync Status", "success" if data.get("synced") else "failed"),
+            ("Enable Status", "on" if data.get("enabled") else "off"),
+        ],
+    )
+    return 0
+
+
+def time_sync_set_enabled(args, session: DeviceSession, enabled: bool) -> int:
+    action = "enable" if enabled else "disable"
+    if not args.yes:
+        answer = (
+            input(f"Proceed to {action} NTP time synchronization? [y/N]: ")
+            .strip()
+            .lower()
+        )
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+
+    payload = _device_json_post(
+        session,
+        TIME_SYNC_SETTING_ENDPOINT,
+        {"enabled": enabled},
+        timeout=30.0,
+    )
+    if not isinstance(payload, dict) or not payload.get("success"):
+        message = (
+            payload.get("message") if isinstance(payload, dict) else "request failed"
+        )
+        raise LooperCliError(f"Time sync setting update failed: {message}")
+
+    data = payload.get("data") or {}
+    log(payload.get("message") or "Time sync setting saved")
+    _print_key_values(
+        "Time Synchronization",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Sync Status", "success" if data.get("synced") else "failed"),
+            ("Enable Status", "on" if data.get("enabled") else "off"),
         ],
     )
     return 0
@@ -653,6 +715,7 @@ def _build_system_snapshot(session: DeviceSession) -> dict:
         "deviceEndpoint": session.ensure_resolved(),
         "version": session.ensure_version(),
         "systemTime": _device_json_get(session, "/api/system-time"),
+        "timeSyncSetting": _device_json_get(session, TIME_SYNC_SETTING_ENDPOINT),
         "ipConfig": _device_json_get(session, "/api/ip-config"),
         "ddsType": _device_json_get(session, "/api/dds-type"),
         "calibrationMode": _device_json_get(session, CALIBRATION_MODE_ENDPOINT),
