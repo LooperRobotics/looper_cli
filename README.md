@@ -219,7 +219,7 @@ When OTA-related commands are executed, the CLI currently works as follows:
 
 `insight stop`
 
-- Uses the same backend behavior as pause on current firmware
+- Calls the stop backend first and falls back to pause endpoints for older firmware
 - `looper control insight-stop` is an alias entry for the same action
 
 `calibration upload`
@@ -240,6 +240,7 @@ The current CLI covers these confirmed device-local APIs:
 - `/api/version`
 - `/api/reboot`
 - `/api/insight-start`
+- `/api/insight-stop`
 - `/api/insight-pause`
 - `/api/system/recovery`
 - `/api/mode`

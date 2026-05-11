@@ -14,6 +14,7 @@ from looper_cli.device import (
     fetch_logs,
     insightfull_pause,
     insightfull_start,
+    insightfull_stop,
     monitor_status,
     network_set,
     network_show,
@@ -170,7 +171,7 @@ def command_insight_pause(args) -> int:
 
 
 def command_insight_stop(args) -> int:
-    return insightfull_pause(args, DeviceSession(args.device_base_url))
+    return insightfull_stop(args, DeviceSession(args.device_base_url))
 
 
 def help_command(args) -> int:
@@ -600,6 +601,12 @@ def build_parser() -> argparse.ArgumentParser:
     recovery_parser.add_argument(
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
+    recovery_parser.add_argument(
+        "--watch-seconds",
+        type=int,
+        default=6000,
+        help="Seconds to keep streaming device-side recovery logs after the request starts",
+    )
     recovery_parser.set_defaults(func=command_system_recovery)
     system_info_parser = system_subparsers.add_parser(
         "info",
@@ -742,7 +749,7 @@ def build_parser() -> argparse.ArgumentParser:
         "stop",
         help="Stop insightfull",
         **_help_text(
-            "Stop Insightfull. On current firmware this maps to the pause-style backend action.",
+            "Stop Insightfull. Falls back to pause endpoints on older firmware.",
             ["python3 looper_cli.py insight stop"],
         ),
     )
@@ -832,6 +839,12 @@ def build_parser() -> argparse.ArgumentParser:
     restore_shallow_parser.add_argument(
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
+    restore_shallow_parser.add_argument(
+        "--watch-seconds",
+        type=int,
+        default=6000,
+        help="Seconds to keep streaming device-side recovery logs after the request starts",
+    )
     restore_shallow_parser.set_defaults(
         func=command_system_recovery, mode="shallow"
     )
@@ -845,6 +858,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     restore_deep_parser.add_argument(
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    restore_deep_parser.add_argument(
+        "--watch-seconds",
+        type=int,
+        default=6000,
+        help="Seconds to keep streaming device-side recovery logs after the request starts",
     )
     restore_deep_parser.set_defaults(func=command_system_recovery, mode="deep")
     recovery_alias_parser = subparsers.add_parser(
@@ -872,6 +891,12 @@ def build_parser() -> argparse.ArgumentParser:
     recovery_shallow_parser.add_argument(
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
+    recovery_shallow_parser.add_argument(
+        "--watch-seconds",
+        type=int,
+        default=6000,
+        help="Seconds to keep streaming device-side recovery logs after the request starts",
+    )
     recovery_shallow_parser.set_defaults(
         func=command_system_recovery, mode="shallow"
     )
@@ -885,6 +910,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     recovery_deep_parser.add_argument(
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    recovery_deep_parser.add_argument(
+        "--watch-seconds",
+        type=int,
+        default=6000,
+        help="Seconds to keep streaming device-side recovery logs after the request starts",
     )
     recovery_deep_parser.set_defaults(func=command_system_recovery, mode="deep")
     calibration_parser = subparsers.add_parser(

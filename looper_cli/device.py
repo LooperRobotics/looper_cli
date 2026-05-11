@@ -6,10 +6,11 @@ import statistics
 import time
 from typing import Optional
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin
 from urllib.request import Request, urlopen
 
 from looper_cli import DEFAULT_DEVICE_BASE_URLS, DEVICE_DETECTION_TIMEOUT, PRODUCT_NAME
+from looper_cli.device_logs import DeviceLogStreamer
 from looper_cli.errors import LooperCliError
 from looper_cli.http import (
     DEFAULT_HEADERS,
@@ -56,6 +57,11 @@ INSIGHT_START_ENDPOINT_CANDIDATES = [
 INSIGHT_PAUSE_ENDPOINT_CANDIDATES = [
     "/api/insight-pause",
     "/api/cli-insight-pause",
+]
+INSIGHT_STOP_ENDPOINT_CANDIDATES = [
+    "/api/insight-stop",
+    "/api/cli-insight-stop",
+    *INSIGHT_PAUSE_ENDPOINT_CANDIDATES,
 ]
 OTA_DEVICE_VERSIONS_ENDPOINT = "/api/ota/device-versions"
 SYSTEM_RECOVERY_ENDPOINT = "/api/system/recovery"
@@ -571,6 +577,15 @@ def insightfull_pause(_arg, session: DeviceSession) -> int:
     return 0
 
 
+def insightfull_stop(_arg, session: DeviceSession) -> int:
+    path, payload = _try_post_candidates(
+        session, INSIGHT_STOP_ENDPOINT_CANDIDATES, {}, "stop insightfull"
+    )
+    message = payload.get("message") if isinstance(payload, dict) else None
+    log(message or f"Insightfull stopped successfully via {path}")
+    return 0
+
+
 def system_recovery(args, session: DeviceSession) -> int:
     mode = str(args.mode or "").strip().lower()
     if mode not in {"shallow", "deep"}:
@@ -591,19 +606,33 @@ def system_recovery(args, session: DeviceSession) -> int:
             log("Aborted by user")
             return 1
 
-    payload = _device_json_post(
-        session,
-        SYSTEM_RECOVERY_ENDPOINT,
-        {"mode": mode},
-        timeout=30.0,
-    )
-    if isinstance(payload, dict) and not payload.get("success", True):
-        raise LooperCliError(
-            f"{mode} recovery request failed: {payload.get('message') or 'request rejected'}"
-        )
+    device_base_url = session.ensure_resolved()
+    log(f"Resolved device endpoint: {device_base_url}")
+    log(f"Recovery mode: {mode}")
 
-    message = payload.get("message") if isinstance(payload, dict) else None
-    log(message or f"{mode} recovery started successfully")
+    ws_url = urljoin(device_base_url, "/api/ota/ws").replace("http://", "ws://")
+    log_streamer = DeviceLogStreamer(ws_url)
+    log_streamer.start()
+    try:
+        payload = _device_json_post(
+            session,
+            SYSTEM_RECOVERY_ENDPOINT,
+            {"mode": mode},
+            timeout=30.0,
+        )
+        if isinstance(payload, dict) and not payload.get("success", True):
+            raise LooperCliError(
+                f"{mode} recovery request failed: {payload.get('message') or 'request rejected'}"
+            )
+
+        message = payload.get("message") if isinstance(payload, dict) else None
+        log(message or f"{mode} recovery started successfully")
+        watch_seconds = max(int(getattr(args, "watch_seconds", 6000) or 0), 0)
+        if watch_seconds > 0:
+            log(f"Watching device logs for {watch_seconds}s")
+            time.sleep(watch_seconds)
+    finally:
+        log_streamer.stop()
     return 0
 
 

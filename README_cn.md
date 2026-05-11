@@ -228,7 +228,7 @@ python3 looper_cli.py logs fetch --output device_logs.zip
 
 `insight stop`
 
-- 在当前固件上使用与 pause 相同的后端行为
+- 优先调用 stop 后端接口，并兼容旧固件上的 pause 接口
 - `looper control insight-stop` 是同一个动作的别名入口
 
 `calibration upload`
@@ -249,6 +249,7 @@ python3 looper_cli.py logs fetch --output device_logs.zip
 - `/api/version`
 - `/api/reboot`
 - `/api/insight-start`
+- `/api/insight-stop`
 - `/api/insight-pause`
 - `/api/system/recovery`
 - `/api/mode`
