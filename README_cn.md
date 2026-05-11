@@ -279,7 +279,7 @@ python3 looper_cli.py logs fetch --output device_logs.zip
 后端提供了 CLI 下载接口，可以直接从设备拉取完整 CLI 包：
 
 ```bash
-curl -L http://<device-host>:8888/api/looper-cli/download -o looper_cli.tar.gz
+curl -L http://<device-host>/api/looper-cli/download -o looper_cli.tar.gz
 tar -xzf looper_cli.tar.gz
 python3 looper_cli/looper_cli.py --help
 ```
@@ -287,5 +287,5 @@ python3 looper_cli/looper_cli.py --help
 如果想先查看下载信息：
 
 ```bash
-curl http://<device-host>:8888/api/looper-cli
+curl http://<device-host>/api/looper-cli
 ```

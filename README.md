@@ -270,7 +270,7 @@ The current CLI covers these confirmed device-local APIs:
 The backend provides a CLI download API. You can pull the full CLI package directly from the device:
 
 ```bash
-curl -L http://<device-host>:8888/api/looper-cli/download -o looper_cli.tar.gz
+curl -L http://<device-host>/api/looper-cli/download -o looper_cli.tar.gz
 tar -xzf looper_cli.tar.gz
 python3 looper_cli/looper_cli.py --help
 ```
@@ -278,5 +278,5 @@ python3 looper_cli/looper_cli.py --help
 To inspect download information first:
 
 ```bash
-curl http://<device-host>:8888/api/looper-cli
+curl http://<device-host>/api/looper-cli
 ```
