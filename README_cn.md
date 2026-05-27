@@ -17,7 +17,8 @@
 - 将设备时间同步到本机时间
 - 控制 Looper 重启、Insightfull 启动/暂停/停止
 - 执行 restore-to-factory 的 shallow 和 deep 恢复
-- 查看/切换校准模式并上传校准参数
+- 查看/切换校准模式、上传校准参数和校准备份恢复
+- 摄像头帧率配置的查询和更新
 - 获取系统日志，或在无日志接口时回退到诊断快照
 
 
@@ -153,12 +154,25 @@ python3 looper_cli.py insight stop
 
 # 查看当前标定模式状态
 python3 looper_cli.py calibration status
-# 是能标定模式
+# 使能标定模式
 python3 looper_cli.py calibration enable
 # 关闭标定模式
 python3 looper_cli.py calibration disable
 # 上传标定文件
 python3 looper_cli.py calibration upload calibration.json
+# 上传标定文件到自定义端点（例如 /api/upload）
+python3 looper_cli.py calibration upload calibration.json --endpoint /api/upload
+# 从备份恢复标定文件
+python3 looper_cli.py calibration restore
+
+# 查看当前摄像头帧率设置
+python3 looper_cli.py camera fps
+# 设置摄像头帧率为 30
+python3 looper_cli.py camera fps --fps 30
+# 设置摄像头帧率为 60
+python3 looper_cli.py camera fps --fps 60
+# 以 JSON 格式显示摄像头帧率
+python3 looper_cli.py camera fps --json
 
 # 查看设备所有监控的状态信息
 python3 looper_cli.py logs fetch
@@ -236,6 +250,18 @@ python3 looper_cli.py logs fetch --output device_logs.zip
 - 用于上传校准参数文件
 - 若某个固件使用自定义上传接口，可通过 `--endpoint` 显式指定
 
+`calibration restore`
+
+- 从设备恢复校准参数备份文件
+- 查找 `.bak` 文件并将其复制回原始文件名
+- 用于恢复之前的校准设置
+
+`camera fps`
+
+- 查询或配置摄像头帧率
+- 支持 20、30 和 60 FPS 三个值
+- 不带 `--fps` 参数调用时返回当前帧率设置
+
 `logs fetch`
 
 - 会优先尝试已知的日志下载接口
@@ -264,6 +290,9 @@ python3 looper_cli.py logs fetch --output device_logs.zip
 - `/api/ota/upload`
 - `/api/ota/start`
 - `/api/ota/ws`
+- `/api/upload` (支持备份现有文件的多部分表单文件上传)
+- `/api/restore` (恢复备份文件)
+- `/api/camera-fps` (GET/POST 摄像头帧率配置)
 
 ## 故障排查
 

@@ -17,7 +17,8 @@ Current capability coverage:
 - Device time synchronization with the local machine
 - Looper reboot and Insightfull start, pause, stop
 - Restore-to-factory shallow and deep recovery
-- Calibration mode status, switching, and calibration parameter upload
+- Calibration mode status, switching, calibration parameter upload, and calibration backup restore
+- Camera FPS configuration inspection and update
 - System log retrieval, with diagnostic snapshot fallback when the log API is unavailable
 
 ## Version Commit Mapping
@@ -152,6 +153,19 @@ python3 looper_cli.py calibration enable
 python3 looper_cli.py calibration disable
 # Upload calibration file
 python3 looper_cli.py calibration upload calibration.json
+# Upload calibration file to custom endpoint (e.g., /api/upload)
+python3 looper_cli.py calibration upload calibration.json --endpoint /api/upload
+# Restore calibration files from backups
+python3 looper_cli.py calibration restore
+
+# View current camera FPS setting
+python3 looper_cli.py camera fps
+# Set camera FPS to 30
+python3 looper_cli.py camera fps --fps 30
+# Set camera FPS to 60
+python3 looper_cli.py camera fps --fps 60
+# Display camera FPS as JSON
+python3 looper_cli.py camera fps --json
 
 # View all monitored device status information
 python3 looper_cli.py logs fetch
@@ -226,6 +240,19 @@ When OTA-related commands are executed, the CLI currently works as follows:
 
 - Used to upload calibration parameter files
 - If a firmware uses a custom upload API, specify it explicitly with `--endpoint`
+- Common endpoints include `/api/calibration/upload`, `/api/calibration/params`, and `/api/upload`
+
+`calibration restore`
+
+- Restores backup calibration files from the device
+- Looks for `.bak` files and copies them back to their original names
+- Useful for recovering previous calibration settings
+
+`camera fps`
+
+- Query or configure the camera frame rate
+- Supports 20, 30, and 60 FPS values
+- Returns the current FPS setting when called without `--fps`
 
 `logs fetch`
 
@@ -255,6 +282,9 @@ The current CLI covers these confirmed device-local APIs:
 - `/api/ota/upload`
 - `/api/ota/start`
 - `/api/ota/ws`
+- `/api/upload` (multipart form file upload with backup support)
+- `/api/restore` (restore backup files)
+- `/api/camera-fps` (GET/POST camera FPS configuration)
 
 ## Troubleshooting
 

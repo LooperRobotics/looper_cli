@@ -8,6 +8,8 @@ from looper_cli.device import (
     calibration_set_mode,
     calibration_status,
     calibration_upload,
+    calibration_restore,
+    camera_fps,
     dds_set,
     dds_show,
     device_versions_show,
@@ -103,6 +105,14 @@ def command_calibration_disable(args) -> int:
 
 def command_calibration_upload(args) -> int:
     return calibration_upload(args, DeviceSession(args.device_base_url))
+
+
+def command_calibration_restore(args) -> int:
+    return calibration_restore(args, DeviceSession(args.device_base_url))
+
+
+def command_camera_fps(args) -> int:
+    return camera_fps(args, DeviceSession(args.device_base_url))
 
 
 def command_logs_fetch(args) -> int:
@@ -268,6 +278,9 @@ def build_parser() -> argparse.ArgumentParser:
             "enable",
             "disable",
             "upload",
+            "restore",
+            "camera",
+            "fps",
             "logs",
             "fetch",
             "time",
@@ -935,6 +948,18 @@ def build_parser() -> argparse.ArgumentParser:
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
     calibration_disable_parser.set_defaults(func=command_calibration_disable)
+    calibration_restore_parser = calibration_subparsers.add_parser(
+        "restore",
+        help="Restore calibration backup files",
+        **_help_text(
+            "Restore backed-up calibration files from the device.",
+            ["python3 looper_cli.py calibration restore -y"],
+        ),
+    )
+    calibration_restore_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    calibration_restore_parser.set_defaults(func=command_calibration_restore)
     calibration_upload_parser = calibration_subparsers.add_parser(
         "upload",
         help="Upload calibration parameters to the device",
@@ -943,6 +968,7 @@ def build_parser() -> argparse.ArgumentParser:
             [
                 "python3 looper_cli.py calibration upload calibration.json",
                 "python3 looper_cli.py calibration upload calibration.json --endpoint /api/calibration/upload",
+                "python3 looper_cli.py calibration upload calibration.json --endpoint /api/upload",
             ],
         ),
     )
@@ -954,6 +980,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional explicit device API path for calibration upload, for example /api/calibration/upload",
     )
     calibration_upload_parser.set_defaults(func=command_calibration_upload)
+
+    camera_parser = subparsers.add_parser(
+        "camera",
+        help="Camera configuration commands",
+        **_help_text(
+            "Inspect or update camera FPS configuration.",
+            [
+                "python3 looper_cli.py camera fps",
+                "python3 looper_cli.py camera fps --fps 30 -y",
+            ],
+        ),
+    )
+    camera_subparsers = camera_parser.add_subparsers(
+        dest="camera_command", required=True
+    )
+    camera_fps_parser = camera_subparsers.add_parser(
+        "fps",
+        help="View or set the camera frame rate",
+        **_help_text(
+            "Get or set the camera FPS.",
+            [
+                "python3 looper_cli.py camera fps",
+                "python3 looper_cli.py camera fps --fps 30 -y",
+            ],
+        ),
+    )
+    camera_fps_parser.add_argument(
+        "--fps",
+        choices=["20", "30", "60"],
+        help="Optional target FPS value: 20, 30, or 60",
+    )
+    camera_fps_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw camera FPS JSON response",
+    )
+    camera_fps_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    camera_fps_parser.set_defaults(func=command_camera_fps)
 
     logs_parser = subparsers.add_parser(
         "logs",

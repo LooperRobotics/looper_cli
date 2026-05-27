@@ -27,7 +27,10 @@ CALIBRATION_UPLOAD_CANDIDATES = [
     "/api/calibration/params",
     "/api/calibration",
     "/api/calibration-params/upload",
+    "/api/upload",
 ]
+RESTORE_ENDPOINT = "/api/restore"
+CAMERA_FPS_ENDPOINT = "/api/camera-fps"
 REBOOT_ENDPOINT_CANDIDATES = [
     "/api/reboot",
     "/api/cli-reboot",
@@ -604,6 +607,73 @@ def system_recovery(args, session: DeviceSession) -> int:
 
     message = payload.get("message") if isinstance(payload, dict) else None
     log(message or f"{mode} recovery started successfully")
+    return 0
+
+
+def calibration_restore(args, session: DeviceSession) -> int:
+    if not args.yes:
+        answer = input(
+            "Proceed with restoring calibration backup files? [y/N]: "
+        ).strip().lower()
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+
+    payload = _device_json_post(session, RESTORE_ENDPOINT, {}, timeout=30.0)
+    if isinstance(payload, dict) and not payload.get("success", True):
+        raise LooperCliError(
+            f"Calibration restore failed: {payload.get('message') or 'request rejected'}"
+        )
+
+    message = payload.get("message") if isinstance(payload, dict) else None
+    log(message or "Calibration restore completed successfully")
+    return 0
+
+
+def camera_fps(args, session: DeviceSession) -> int:
+    if args.fps:
+        if args.fps not in {"20", "30", "60"}:
+            raise LooperCliError("Invalid fps. Supported values are 20, 30, or 60")
+        if not args.yes:
+            answer = input(
+                f"Set camera FPS to {args.fps}? [y/N]: "
+            ).strip().lower()
+            if answer not in {"y", "yes"}:
+                log("Aborted by user")
+                return 1
+
+        payload = _device_json_post(
+            session,
+            CAMERA_FPS_ENDPOINT,
+            {"fps": args.fps},
+            timeout=30.0,
+        )
+        if isinstance(payload, dict) and not payload.get("success", True):
+            raise LooperCliError(
+                f"Camera FPS update failed: {payload.get('message') or 'request rejected'}"
+            )
+        message = payload.get("message") if isinstance(payload, dict) else None
+        log(message or f"Camera FPS set to {args.fps}")
+        return 0
+
+    payload = _device_json_get(session, CAMERA_FPS_ENDPOINT)
+    if not isinstance(payload, dict) or not payload.get("success", True):
+        raise LooperCliError("Failed to read camera FPS")
+
+    data = payload.get("data") or {}
+    fps_value = data.get("fps") or "unknown"
+
+    if args.json:
+        print_json(payload)
+        return 0
+
+    _print_key_values(
+        "Camera FPS",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Current FPS", fps_value),
+        ],
+    )
     return 0
 
 
