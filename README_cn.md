@@ -178,6 +178,17 @@ python3 looper_cli.py camera fps --json
 python3 looper_cli.py logs fetch
 # 将设备状态信息输入到文件
 python3 looper_cli.py logs fetch --output device_logs.zip
+
+# 查看ros domain id
+python3 looper_cli.py ros domain-id show
+# 设置ros domain id
+python3 looper_cli.py ros domain-id set --ros-domain-id 1 -y
+
+# 查看ros topic name
+python3 looper_cli.py ros topic show
+# 设置ros topic name
+python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace camera --camera-name camera -y
+
 ```
 
 

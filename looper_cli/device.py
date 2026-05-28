@@ -32,6 +32,8 @@ CALIBRATION_UPLOAD_CANDIDATES = [
 ]
 RESTORE_ENDPOINT = "/api/restore"
 CAMERA_FPS_ENDPOINT = "/api/camera-fps"
+ROS_DOMAIN_ID_ENDPOINT = "/api/ros-domain-id"
+CAMERA_CONFIG_ENDPOINT = "/api/camera-config"
 REBOOT_ENDPOINT_CANDIDATES = [
     "/api/reboot",
     "/api/cli-reboot",
@@ -300,6 +302,105 @@ def dds_set(args, session: DeviceSession) -> int:
         )
         raise LooperCliError(f"DDS type update failed: {message}")
     log(payload.get("message") or f"DDS type updated to {target}")
+    return 0
+
+
+def ros_domain_id_show(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, ROS_DOMAIN_ID_ENDPOINT)
+    if args.json:
+        print_json(payload)
+        return 0
+    if not isinstance(payload, dict) or not payload.get("success"):
+        raise LooperCliError("Failed to read ROS domain ID")
+    data = payload.get("data") or {}
+    _print_key_values(
+        "ROS Domain ID",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("ROS Domain ID", data.get("rosDomainId", "unknown")),
+        ],
+    )
+    return 0
+
+
+def ros_domain_id_set(args, session: DeviceSession) -> int:
+    if args.ros_domain_id is None:
+        raise LooperCliError("Provide --ros-domain-id value")
+    if not args.yes:
+        answer = (
+            input(f"Set ROS_DOMAIN_ID to {args.ros_domain_id}? [y/N]: ")
+            .strip()
+            .lower()
+        )
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+    payload = _device_json_post(
+        session,
+        ROS_DOMAIN_ID_ENDPOINT,
+        {"rosDomainId": args.ros_domain_id},
+    )
+    if not isinstance(payload, dict) or not payload.get("success"):
+        message = (
+            payload.get("message") if isinstance(payload, dict) else "request failed"
+        )
+        raise LooperCliError(f"ROS Domain ID update failed: {message}")
+    log(payload.get("message") or f"ROS_DOMAIN_ID updated to {args.ros_domain_id}")
+    return 0
+
+
+def ros_topic_show(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, CAMERA_CONFIG_ENDPOINT)
+    if args.json:
+        print_json(payload)
+        return 0
+    if not isinstance(payload, dict) or not payload.get("success"):
+        raise LooperCliError("Failed to read ROS topic config")
+    data = payload.get("data") or {}
+    _print_key_values(
+        "ROS Topic Config",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Node Name", data.get("nodeName", "unknown")),
+            ("Camera Namespace", data.get("cameraNamespace", "unknown")),
+            ("Camera Name", data.get("cameraName", "unknown")),
+        ],
+    )
+    return 0
+
+
+def ros_topic_set(args, session: DeviceSession) -> int:
+    if not args.node_name or not args.camera_namespace or not args.camera_name:
+        raise LooperCliError(
+            "Provide --node-name, --camera-namespace and --camera-name"
+        )
+    if not args.yes:
+        answer = (
+            input(
+                f"Set ROS topic config node_name={args.node_name} "
+                f"camera_namespace={args.camera_namespace} camera_name={args.camera_name}? [y/N]: "
+            )
+            .strip()
+            .lower()
+        )
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+    payload = _device_json_post(
+        session,
+        CAMERA_CONFIG_ENDPOINT,
+        {
+            "nodeName": args.node_name,
+            "cameraNamespace": args.camera_namespace,
+            "cameraName": args.camera_name,
+        },
+    )
+    if not isinstance(payload, dict) or not payload.get("success"):
+        message = (
+            payload.get("message") if isinstance(payload, dict) else "request failed"
+        )
+        raise LooperCliError(f"ROS topic config update failed: {message}")
+    log(payload.get("message") or "ROS topic config updated successfully")
     return 0
 
 

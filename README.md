@@ -171,6 +171,17 @@ python3 looper_cli.py camera fps --json
 python3 looper_cli.py logs fetch
 # Write device status information to a file
 python3 looper_cli.py logs fetch --output device_logs.zip
+
+# show ros domain id
+python3 looper_cli.py ros domain-id show
+# set ros domain id
+python3 looper_cli.py ros domain-id set --ros-domain-id 1 -y
+
+# show ros topic name
+python3 looper_cli.py ros topic show
+# set ros topic name
+python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace camera --camera-name camera -y
+
 ```
 
 ## OTA Workflow

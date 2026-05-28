@@ -22,6 +22,10 @@ from looper_cli.device import (
     network_show,
     print_current_status,
     reboot_device,
+    ros_domain_id_set,
+    ros_domain_id_show,
+    ros_topic_set,
+    ros_topic_show,
     system_recovery,
     system_info_show,
     system_sync_time,
@@ -134,6 +138,22 @@ def command_dds_show(args) -> int:
 
 def command_dds_set(args) -> int:
     return dds_set(args, DeviceSession(args.device_base_url))
+
+
+def command_ros_domain_id_show(args) -> int:
+    return ros_domain_id_show(args, DeviceSession(args.device_base_url))
+
+
+def command_ros_domain_id_set(args) -> int:
+    return ros_domain_id_set(args, DeviceSession(args.device_base_url))
+
+
+def command_ros_topic_show(args) -> int:
+    return ros_topic_show(args, DeviceSession(args.device_base_url))
+
+
+def command_ros_topic_set(args) -> int:
+    return ros_topic_set(args, DeviceSession(args.device_base_url))
 
 
 def command_monitor_status(args) -> int:
@@ -291,6 +311,13 @@ def build_parser() -> argparse.ArgumentParser:
             "start",
             "pause",
             "stop",
+            "ros",
+            "domain-id",
+            "topic",
+            "set",
+            "node-name",
+            "camera-namespace",
+            "camera-name",
             "looper",
             "control",
             "insight-start",
@@ -1051,6 +1078,127 @@ def build_parser() -> argparse.ArgumentParser:
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
     camera_fps_parser.set_defaults(func=command_camera_fps)
+
+    ros_parser = subparsers.add_parser(
+        "ros",
+        help="ROS configuration commands",
+        **_help_text(
+            "Show or update ROS configuration values, including ROS domain ID and camera ROS topic naming.",
+            [
+                "python3 looper_cli.py ros domain-id show",
+                "python3 looper_cli.py ros domain-id set --ros-domain-id 1 -y",
+                "python3 looper_cli.py ros topic show",
+                "python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace camera --camera-name camera -y",
+            ],
+        ),
+    )
+    ros_subparsers = ros_parser.add_subparsers(dest="ros_command", required=True)
+
+    ros_domain_id_parser = ros_subparsers.add_parser(
+        "domain-id",
+        help="Show or update the ROS_DOMAIN_ID setting",
+        **_help_text(
+            "Show or update the ROS_DOMAIN_ID file setting.",
+            [
+                "python3 looper_cli.py ros domain-id show",
+                "python3 looper_cli.py ros domain-id set --ros-domain-id 1 -y",
+            ],
+        ),
+    )
+    ros_domain_id_subparsers = ros_domain_id_parser.add_subparsers(
+        dest="ros_domain_id_command", required=True
+    )
+    ros_domain_id_show_parser = ros_domain_id_subparsers.add_parser(
+        "show",
+        help="Show the current ROS domain ID",
+        **_help_text(
+            "Show the ROS_DOMAIN_ID currently configured on the device.",
+            ["python3 looper_cli.py ros domain-id show"],
+        ),
+    )
+    ros_domain_id_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw ROS domain ID JSON response",
+    )
+    ros_domain_id_show_parser.set_defaults(func=command_ros_domain_id_show)
+
+    ros_domain_id_set_parser = ros_domain_id_subparsers.add_parser(
+        "set",
+        help="Update the ROS domain ID",
+        **_help_text(
+            "Update the ROS_DOMAIN_ID setting on the device.",
+            ["python3 looper_cli.py ros domain-id set --ros-domain-id 1 -y"],
+        ),
+    )
+    ros_domain_id_set_parser.add_argument(
+        "--ros-domain-id",
+        required=True,
+        help="ROS_DOMAIN_ID value to write to the device",
+    )
+    ros_domain_id_set_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    ros_domain_id_set_parser.set_defaults(func=command_ros_domain_id_set)
+
+    ros_topic_parser = ros_subparsers.add_parser(
+        "topic",
+        help="ROS topic camera naming configuration commands",
+        **_help_text(
+            "Show or update the ROS camera topic name configuration.",
+            [
+                "python3 looper_cli.py ros topic show",
+                "python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace camera --camera-name camera -y",
+            ],
+        ),
+    )
+    ros_topic_subparsers = ros_topic_parser.add_subparsers(
+        dest="ros_topic_command", required=True
+    )
+    ros_topic_show_parser = ros_topic_subparsers.add_parser(
+        "show",
+        help="Show the current ROS topic camera config",
+        **_help_text(
+            "Show the ROS camera topic configuration stored on the device.",
+            ["python3 looper_cli.py ros topic show"],
+        ),
+    )
+    ros_topic_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw ROS topic config JSON response",
+    )
+    ros_topic_show_parser.set_defaults(func=command_ros_topic_show)
+
+    ros_topic_set_parser = ros_topic_subparsers.add_parser(
+        "set",
+        help="Update the ROS topic camera name configuration",
+        **_help_text(
+            "Update the ROS camera topic name configuration on the device.",
+            [
+                "python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace camera --camera-name camera -y",
+            ],
+        ),
+    )
+    ros_topic_set_parser.add_argument(
+        "--node-name",
+        required=True,
+        help="ROS node name for the camera topic, e.g. insight_full",
+    )
+    ros_topic_set_parser.add_argument(
+        "--camera-namespace",
+        required=True,
+        help="ROS namespace for the camera, e.g. camera",
+    )
+    ros_topic_set_parser.add_argument(
+        "--camera-name",
+        required=True,
+        help="ROS camera name, e.g. camera",
+    )
+    ros_topic_set_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    ros_topic_set_parser.set_defaults(func=command_ros_topic_set)
 
     logs_parser = subparsers.add_parser(
         "logs",
