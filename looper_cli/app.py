@@ -1,5 +1,6 @@
 import argparse
 import sys
+from typing import Dict, List, Optional
 from urllib.error import HTTPError, URLError
 
 from looper_cli import CLI_VERSION, DEFAULT_PER_PAGE, PB_BASE_URL, PRODUCT_NAME
@@ -42,8 +43,8 @@ class CliHelpFormatter(argparse.RawDescriptionHelpFormatter):
     pass
 
 
-def _help_text(description: str, examples: list[str] | None = None) -> dict:
-    kwargs: dict = {
+def _help_text(description: str, examples: Optional[List[str]] = None) -> Dict:
+    kwargs: Dict = {
         "description": description,
         "formatter_class": CliHelpFormatter,
     }
@@ -53,7 +54,7 @@ def _help_text(description: str, examples: list[str] | None = None) -> dict:
 
 
 def _resolve_help_parser(
-    parser: argparse.ArgumentParser, topics: list[str]
+    parser: argparse.ArgumentParser, topics: List[str]
 ) -> argparse.ArgumentParser:
     current = parser
     for topic in topics:

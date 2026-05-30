@@ -1,10 +1,9 @@
 import concurrent.futures
 import json
-from dataclasses import dataclass
 import os
 import statistics
 import time
-from typing import Optional
+from typing import List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin
 from urllib.request import Request, urlopen
@@ -110,7 +109,7 @@ def resolve_device_base_url(configured_url: Optional[str] = None) -> str:
             version = future.result()
             if version:
                 log(f"Resolved device endpoint: {candidate} (version {version})")
-                executor.shutdown(wait=False, cancel_futures=True)
+                executor.shutdown(wait=False)
                 return candidate
 
     raise LooperCliError(
@@ -119,11 +118,16 @@ def resolve_device_base_url(configured_url: Optional[str] = None) -> str:
     )
 
 
-@dataclass
 class DeviceSession:
-    configured_base_url: Optional[str]
-    resolved_base_url: Optional[str] = None
-    current_version: Optional[str] = None
+    def __init__(
+        self,
+        configured_base_url: Optional[str],
+        resolved_base_url: Optional[str] = None,
+        current_version: Optional[str] = None,
+    ):
+        self.configured_base_url = configured_base_url
+        self.resolved_base_url = resolved_base_url
+        self.current_version = current_version
 
     def ensure_resolved(self) -> str:
         if self.resolved_base_url is None:
@@ -199,7 +203,7 @@ def _device_json_post(
     )
 
 
-def _print_key_values(title: str, entries: list[tuple[str, object]]) -> None:
+def _print_key_values(title: str, entries: List[Tuple[str, object]]) -> None:
     print(PRODUCT_NAME)
     print(title)
     for key, value in entries:
@@ -222,7 +226,7 @@ def network_show(_args, session: DeviceSession) -> int:
     return 0
 
 
-def _segment_to_ips(segment: str) -> tuple[str, str]:
+def _segment_to_ips(segment: str) -> Tuple[str, str]:
     try:
         segment_value = int(segment)
     except ValueError as exc:
@@ -641,7 +645,7 @@ def reboot_device(args, session: DeviceSession) -> int:
 
 
 def _try_post_candidates(
-    session: DeviceSession, candidates: list[str], payload: dict, action_name: str
+    session: DeviceSession, candidates: List[str], payload: dict, action_name: str
 ):
     errors = []
     for path in candidates:

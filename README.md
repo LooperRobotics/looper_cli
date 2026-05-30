@@ -34,6 +34,21 @@ Versions `1.2.4` through `1.2.5` correspond to commit:`5930bb25a6d7f2902c6e89fe8
 - `README.md`: English documentation
 - `README_cn.md`: Chinese documentation
 
+## Python Compatibility
+
+This branch is intended to work on JetPack 5.0 environments that ship with Python 3.8 by default.
+
+Verified syntax compatibility:
+
+- Python 3.8: supported
+- Python 3.7: supported
+- Python 3.6: supported
+
+Notes:
+
+- Python 3.5 and earlier are not supported without further backport work.
+- Validation in this branch focused on parser/runtime compatibility of the CLI codebase itself.
+
 ## Quick Start
 
 Show top-level help:

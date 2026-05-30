@@ -4,7 +4,7 @@ import json
 import re
 import textwrap
 import time
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 from urllib.error import HTTPError
 from urllib.parse import urlencode, urljoin
 from urllib.request import Request, urlopen
@@ -157,7 +157,7 @@ def check_initial_version(device_base_url: str, initial_version: str) -> dict:
 
 def filter_firmware_files(
     record: dict, filenames: List[str], device_versions: dict
-) -> List[str] | None:
+) -> Optional[List[str]]:
     manifest = normalize_manifest(record.get("manifest"))
     if not manifest.get("software_version") and not manifest.get("fireware_version"):
         return None
