@@ -137,7 +137,7 @@ python3 looper_cli.py time status
 # Enable or disable NTP time synchronization
 python3 looper_cli.py time enable
 python3 looper_cli.py time disable
-# Synchronize device time
+# Synchronize device time, Time synchronization must be enabled first
 python3 looper_cli.py time sync
 
 # Start software
@@ -158,13 +158,13 @@ python3 looper_cli.py calibration upload calibration.json --endpoint /api/upload
 # Restore calibration files from backups
 python3 looper_cli.py calibration restore
 
-# View current camera FPS setting
+# View current camera FPS setting, Not supported yet
 python3 looper_cli.py camera fps
-# Set camera FPS to 30
+# Set camera FPS to 30, Not supported yet
 python3 looper_cli.py camera fps --fps 30
-# Set camera FPS to 60
+# Set camera FPS to 60, Not supported yet
 python3 looper_cli.py camera fps --fps 60
-# Display camera FPS as JSON
+# Display camera FPS as JSON, Not supported yet
 python3 looper_cli.py camera fps --json
 
 # View all monitored device status information

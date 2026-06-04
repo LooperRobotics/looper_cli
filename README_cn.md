@@ -144,7 +144,7 @@ python3 looper_cli.py time status
 # 开启或关闭 NTP 时间同步
 python3 looper_cli.py time enable
 python3 looper_cli.py time disable
-# 进行设备时间同步
+# 进行设备时间同步,需先使能时间同步功能
 python3 looper_cli.py time sync
 
 # 启动软件
@@ -165,13 +165,13 @@ python3 looper_cli.py calibration upload calibration.json --endpoint /api/upload
 # 从备份恢复标定文件
 python3 looper_cli.py calibration restore
 
-# 查看当前摄像头帧率设置
+# 查看当前摄像头帧率设置,暂不支持
 python3 looper_cli.py camera fps
-# 设置摄像头帧率为 30
+# 设置摄像头帧率为 30,暂不支持
 python3 looper_cli.py camera fps --fps 30
-# 设置摄像头帧率为 60
+# 设置摄像头帧率为 60,暂不支持
 python3 looper_cli.py camera fps --fps 60
-# 以 JSON 格式显示摄像头帧率
+# 以 JSON 格式显示摄像头帧率,暂不支持
 python3 looper_cli.py camera fps --json
 
 # 查看设备所有监控的状态信息
