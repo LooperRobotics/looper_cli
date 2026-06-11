@@ -12,6 +12,8 @@ from looper_cli.device import (
     camera_fps,
     dds_set,
     dds_show,
+    deep_flow_set,
+    deep_flow_show,
     device_versions_show,
     fetch_logs,
     insightfull_pause,
@@ -118,6 +120,18 @@ def command_calibration_restore(args) -> int:
 
 def command_camera_fps(args) -> int:
     return camera_fps(args, DeviceSession(args.device_base_url))
+
+
+def command_deep_flow_show(args) -> int:
+    return deep_flow_show(args, DeviceSession(args.device_base_url))
+
+
+def command_deep_flow_enable(args) -> int:
+    return deep_flow_set(args, DeviceSession(args.device_base_url), enabled=True)
+
+
+def command_deep_flow_disable(args) -> int:
+    return deep_flow_set(args, DeviceSession(args.device_base_url), enabled=False)
 
 
 def command_logs_fetch(args) -> int:
@@ -302,6 +316,9 @@ def build_parser() -> argparse.ArgumentParser:
             "restore",
             "camera",
             "fps",
+            "deep-flow",
+            "enable",
+            "disable",
             "logs",
             "fetch",
             "time",
@@ -1078,6 +1095,63 @@ def build_parser() -> argparse.ArgumentParser:
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
     camera_fps_parser.set_defaults(func=command_camera_fps)
+
+    deep_flow_parser = subparsers.add_parser(
+        "deep-flow",
+        help="Deep flow switch commands",
+        **_help_text(
+            "Inspect or toggle the deep flow (depth estimation) switch shown on the Web Looper Control page.",
+            [
+                "python3 looper_cli.py deep-flow show",
+                "python3 looper_cli.py deep-flow enable -y",
+                "python3 looper_cli.py deep-flow disable -y",
+            ],
+        ),
+    )
+    deep_flow_subparsers = deep_flow_parser.add_subparsers(
+        dest="deep_flow_command", required=True
+    )
+    deep_flow_show_parser = deep_flow_subparsers.add_parser(
+        "show",
+        help="Show the current deep flow switch state",
+        **_help_text(
+            "Show whether the deep flow switch is currently enabled.",
+            [
+                "python3 looper_cli.py deep-flow show",
+                "python3 looper_cli.py deep-flow show --json",
+            ],
+        ),
+    )
+    deep_flow_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw deep flow JSON response",
+    )
+    deep_flow_show_parser.set_defaults(func=command_deep_flow_show)
+    deep_flow_enable_parser = deep_flow_subparsers.add_parser(
+        "enable",
+        help="Enable the deep flow switch",
+        **_help_text(
+            "Enable deep flow on the device; the camera service restarts to apply the change.",
+            ["python3 looper_cli.py deep-flow enable -y"],
+        ),
+    )
+    deep_flow_enable_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    deep_flow_enable_parser.set_defaults(func=command_deep_flow_enable)
+    deep_flow_disable_parser = deep_flow_subparsers.add_parser(
+        "disable",
+        help="Disable the deep flow switch",
+        **_help_text(
+            "Disable deep flow on the device; the camera service restarts to apply the change.",
+            ["python3 looper_cli.py deep-flow disable -y"],
+        ),
+    )
+    deep_flow_disable_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    deep_flow_disable_parser.set_defaults(func=command_deep_flow_disable)
 
     ros_parser = subparsers.add_parser(
         "ros",

@@ -32,6 +32,7 @@ CALIBRATION_UPLOAD_CANDIDATES = [
 ]
 RESTORE_ENDPOINT = "/api/restore"
 CAMERA_FPS_ENDPOINT = "/api/camera-fps"
+DEEP_FLOW_ENDPOINT = "/api/deep-flow"
 ROS_DOMAIN_ID_ENDPOINT = "/api/ros-domain-id"
 CAMERA_CONFIG_ENDPOINT = "/api/camera-config"
 REBOOT_ENDPOINT_CANDIDATES = [
@@ -804,6 +805,57 @@ def camera_fps(args, session: DeviceSession) -> int:
             ("Current FPS", fps_value),
         ],
     )
+    return 0
+
+
+def deep_flow_show(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, DEEP_FLOW_ENDPOINT)
+    if not isinstance(payload, dict) or not payload.get("success", True):
+        raise LooperCliError("Failed to read deep flow status")
+
+    if args.json:
+        print_json(payload)
+        return 0
+
+    data = payload.get("data") or {}
+    if "enabled" in data:
+        state = "on" if data.get("enabled") else "off"
+    else:
+        # Some firmware returns success without echoing the stored state.
+        state = "unknown"
+
+    _print_key_values(
+        "Deep Flow",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Deep Flow", state),
+        ],
+    )
+    return 0
+
+
+def deep_flow_set(args, session: DeviceSession, enabled: bool) -> int:
+    action = "enable" if enabled else "disable"
+    if not args.yes:
+        answer = (
+            input(f"Proceed to {action} deep flow? [y/N]: ").strip().lower()
+        )
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+
+    payload = _device_json_post(
+        session,
+        DEEP_FLOW_ENDPOINT,
+        {"enabled": enabled},
+        timeout=30.0,
+    )
+    if not isinstance(payload, dict) or not payload.get("success"):
+        message = (
+            payload.get("message") if isinstance(payload, dict) else "request failed"
+        )
+        raise LooperCliError(f"Deep flow update failed: {message}")
+    log(payload.get("message") or f"Deep flow {action}d successfully")
     return 0
 
 

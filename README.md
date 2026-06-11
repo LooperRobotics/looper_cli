@@ -19,6 +19,7 @@ Current capability coverage:
 - Restore-to-factory shallow and deep recovery
 - Calibration mode status, switching, calibration parameter upload, and calibration backup restore
 - Camera FPS configuration inspection and update
+- Deep flow (depth estimation) switch inspection and toggling
 - System log retrieval, with diagnostic snapshot fallback when the log API is unavailable
 
 ## Version Commit Mapping
@@ -158,14 +159,23 @@ python3 looper_cli.py calibration upload calibration.json --endpoint /api/upload
 # Restore calibration files from backups
 python3 looper_cli.py calibration restore
 
-# View current camera FPS setting, Not supported yet
+# View current camera FPS setting
 python3 looper_cli.py camera fps
-# Set camera FPS to 30, Not supported yet
-python3 looper_cli.py camera fps --fps 30
-# Set camera FPS to 60, Not supported yet
-python3 looper_cli.py camera fps --fps 60
-# Display camera FPS as JSON, Not supported yet
+# Set camera FPS to 30
+python3 looper_cli.py camera fps --fps 30 -y
+# Set camera FPS to 60
+python3 looper_cli.py camera fps --fps 60 -y
+# Display camera FPS as JSON
 python3 looper_cli.py camera fps --json
+
+# View current deep flow switch state
+python3 looper_cli.py deep-flow show
+# Enable deep flow
+python3 looper_cli.py deep-flow enable -y
+# Disable deep flow
+python3 looper_cli.py deep-flow disable -y
+# Display deep flow state as JSON
+python3 looper_cli.py deep-flow show --json
 
 # View all monitored device status information
 python3 looper_cli.py logs fetch
@@ -264,6 +274,13 @@ When OTA-related commands are executed, the CLI currently works as follows:
 - Query or configure the camera frame rate
 - Supports 20, 30, and 60 FPS values
 - Returns the current FPS setting when called without `--fps`
+- Setting a new FPS value reboots the device to apply the change
+
+`deep-flow show`, `deep-flow enable`, and `deep-flow disable`
+
+- Mirror the deep flow switch on the Web Looper Control page
+- `show` reports the current state; `--json` outputs the raw response payload
+- `enable` and `disable` write `/api/deep-flow` and restart the camera service to apply the change
 
 `logs fetch`
 
@@ -297,6 +314,7 @@ The current CLI covers these confirmed device-local APIs:
 - `/api/upload` (multipart form file upload with backup support)
 - `/api/restore` (restore backup files)
 - `/api/camera-fps` (GET/POST camera FPS configuration)
+- `/api/deep-flow` (GET/POST deep flow switch configuration)
 
 ## Troubleshooting
 

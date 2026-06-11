@@ -19,6 +19,7 @@
 - 执行 restore-to-factory 的 shallow 和 deep 恢复
 - 查看/切换校准模式、上传校准参数和校准备份恢复
 - 摄像头帧率配置的查询和更新
+- 深度流（深度估计）开关的查询和切换
 - 获取系统日志，或在无日志接口时回退到诊断快照
 
 
@@ -165,14 +166,23 @@ python3 looper_cli.py calibration upload calibration.json --endpoint /api/upload
 # 从备份恢复标定文件
 python3 looper_cli.py calibration restore
 
-# 查看当前摄像头帧率设置,暂不支持
+# 查看当前摄像头帧率设置
 python3 looper_cli.py camera fps
-# 设置摄像头帧率为 30,暂不支持
-python3 looper_cli.py camera fps --fps 30
-# 设置摄像头帧率为 60,暂不支持
-python3 looper_cli.py camera fps --fps 60
-# 以 JSON 格式显示摄像头帧率,暂不支持
+# 设置摄像头帧率为 30
+python3 looper_cli.py camera fps --fps 30 -y
+# 设置摄像头帧率为 60
+python3 looper_cli.py camera fps --fps 60 -y
+# 以 JSON 格式显示摄像头帧率
 python3 looper_cli.py camera fps --json
+
+# 查看当前深度流开关状态
+python3 looper_cli.py deep-flow show
+# 开启深度流
+python3 looper_cli.py deep-flow enable -y
+# 关闭深度流
+python3 looper_cli.py deep-flow disable -y
+# 以 JSON 格式显示深度流状态
+python3 looper_cli.py deep-flow show --json
 
 # 查看设备所有监控的状态信息
 python3 looper_cli.py logs fetch
@@ -272,6 +282,13 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - 查询或配置摄像头帧率
 - 支持 20、30 和 60 FPS 三个值
 - 不带 `--fps` 参数调用时返回当前帧率设置
+- 设置新的帧率值会重启设备以使配置生效
+
+`deep-flow show`、`deep-flow enable` 与 `deep-flow disable`
+
+- 对应 Web 端 Looper 控制页面上的深度流开关
+- `show` 查看当前状态，`--json` 输出原始响应数据
+- `enable` 与 `disable` 写入 `/api/deep-flow` 并重启相机服务以使配置生效
 
 `logs fetch`
 
@@ -305,6 +322,7 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - `/api/upload` (支持备份现有文件的多部分表单文件上传)
 - `/api/restore` (恢复备份文件)
 - `/api/camera-fps` (GET/POST 摄像头帧率配置)
+- `/api/deep-flow` (GET/POST 深度流开关配置)
 
 ## 故障排查
 
