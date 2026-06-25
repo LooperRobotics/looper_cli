@@ -231,7 +231,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Official command-line utility for device management, OTA release discovery, "
-            "and firmware updates on LooperRobotics Insight Series devices."
+            "and Ota Updates on LooperRobotics Insight Series devices."
         ),
         epilog=(
             "Examples:\n"
@@ -377,7 +377,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     upgrade_parser = subparsers.add_parser(
         "upgrade",
-        help="Download, upload, and start an OTA firmware update",
+        help="Download, upload, and start an OTA Ota Update",
         **_help_text(
             "Upgrade the device to a specific published release or to the latest release.",
             [
@@ -585,7 +585,7 @@ def build_parser() -> argparse.ArgumentParser:
     ota_list.set_defaults(func=command_list)
     ota_upgrade = ota_subparsers.add_parser(
         "upgrade",
-        help="Download, upload, and start an OTA firmware update",
+        help="Download, upload, and start an OTA Ota Update",
         **_help_text(
             "Upgrade the device to the latest release or a specified version.",
             [

@@ -44,6 +44,110 @@ def fetch_ota_records(pb_base_url: str, per_page: int = DEFAULT_PER_PAGE) -> Lis
         raise LooperCliError("Invalid OTA response payload")
     return items
 
+def normalize_device_base_url(url: str) -> str:
+    return url.rstrip("/")
+
+
+def normalize_product_names(data) -> List[str]:
+    if isinstance(data, str):
+        return [item.strip() for item in data.split(",") if item.strip()]
+    if isinstance(data, list):
+        return [str(item).strip() for item in data if str(item).strip()]
+    return []
+
+
+def fetch_product_names(device_base_url: str) -> List[str]:
+    payload = http_json(
+        f"{normalize_device_base_url(device_base_url)}/api/ota/product-names",
+        timeout=10,
+    )
+    if not isinstance(payload, dict):
+        raise LooperCliError("Invalid OTA product names response")
+    return normalize_product_names(payload.get("data"))
+
+
+def fetch_product_records(pb_base_url: str, product_names: List[str]) -> dict:
+    product_map = {}
+    if not product_names:
+        return product_map
+
+    filter_expr = " || ".join(
+        f'slug="{name}"' for name in product_names if name
+    )
+    if not filter_expr:
+        return product_map
+
+    query = urlencode({"filter": filter_expr, "perPage": 100})
+    url = f"{pb_base_url}/api/collections/products/records?{query}"
+    payload = http_json(url)
+    items = payload.get("items", []) if payload else []
+    if not isinstance(items, list):
+        raise LooperCliError("Invalid products response payload")
+
+    for item in items:
+        slug = item.get("slug")
+        if slug:
+            product_map[str(slug)] = item
+    return product_map
+
+
+def filter_ota_records_by_device(
+    records: List[dict], product_map: dict, product_names: List[str]
+) -> List[dict]:
+    if not product_names:
+        return records
+
+    id_set = {
+        item.get("id")
+        for item in product_map.values()
+        if item.get("id")
+    }
+    slug_set = set(product_map.keys()) or {name for name in product_names if name}
+
+    valid_records: List[dict] = []
+    for record in records:
+        product_field = record.get("product")
+        if product_field is None:
+            continue
+
+        ota_products: List[str] = []
+        if isinstance(product_field, list):
+            ota_products = [str(p).strip() for p in product_field if str(p).strip()]
+        elif isinstance(product_field, dict):
+            candidate_slug = str(product_field.get("slug", "")).strip()
+            candidate_id = str(product_field.get("id", "")).strip()
+            ota_products = [value for value in (candidate_slug, candidate_id) if value]
+        elif isinstance(product_field, str):
+            ota_products = [p.strip() for p in product_field.split(",") if p.strip()]
+        else:
+            ota_products = [str(product_field).strip()]
+
+        for ota_product in ota_products:
+            if ota_product in slug_set or ota_product in id_set:
+                valid_records.append(record)
+                break
+
+    return valid_records
+
+
+def fetch_ota_records_for_device(
+    pb_base_url: str, device_base_url: str, per_page: int = DEFAULT_PER_PAGE
+) -> List[dict]:
+    records = fetch_ota_records(pb_base_url, per_page)
+    try:
+        product_names = fetch_product_names(device_base_url)
+    except LooperCliError as exc:
+        log(f"Warning: unable to fetch product names: {exc}")
+        return records
+
+    product_map = {}
+    try:
+        product_map = fetch_product_records(pb_base_url, product_names)
+    except LooperCliError as exc:
+        log(f"Warning: unable to fetch product metadata: {exc}")
+
+    return filter_ota_records_by_device(records, product_map, product_names)
+
 
 def normalize_version(version: str) -> List[int]:
     parts = []
@@ -357,11 +461,14 @@ def format_release_notes(description: str) -> List[str]:
 
 
 def print_release_list(args, session: DeviceSession) -> int:
+    device_base_url = session.ensure_resolved()
     print(PRODUCT_NAME)
-    print(f"Device Endpoint : {session.ensure_resolved()}")
+    print(f"Device Endpoint : {device_base_url}")
     print(f"Current Version : {session.ensure_version() or 'unknown'}")
     print()
-    records = fetch_ota_records(args.pb_base_url, args.per_page)
+    records = fetch_ota_records_for_device(
+        args.pb_base_url, device_base_url, args.per_page
+    )
     for index, record in enumerate(filter_release_records(records), start=1):
         print(f"Release [{index}]")
         for line in describe_record(record):
@@ -371,7 +478,10 @@ def print_release_list(args, session: DeviceSession) -> int:
 
 
 def run_ota_upgrade(args, session: DeviceSession) -> int:
-    records = fetch_ota_records(args.pb_base_url, args.per_page)
+    device_base_url = session.ensure_resolved()
+    records = fetch_ota_records_for_device(
+        args.pb_base_url, device_base_url, args.per_page
+    )
     target = (
         pick_latest_record(records)
         if args.latest
