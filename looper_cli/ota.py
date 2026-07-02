@@ -48,6 +48,10 @@ def normalize_device_base_url(url: str) -> str:
     return url.rstrip("/")
 
 
+def normalize_product_name(value: str) -> str:
+    return str(value or "").replace("-", "").replace(" ", "").lower().strip()
+
+
 def normalize_product_names(data) -> List[str]:
     if isinstance(data, str):
         return [item.strip() for item in data.split(",") if item.strip()]
@@ -71,13 +75,7 @@ def fetch_product_records(pb_base_url: str, product_names: List[str]) -> dict:
     if not product_names:
         return product_map
 
-    filter_expr = " || ".join(
-        f'slug="{name}"' for name in product_names if name
-    )
-    if not filter_expr:
-        return product_map
-
-    query = urlencode({"filter": filter_expr, "perPage": 100})
+    query = urlencode({"perPage": 100, "sort": "-created"})
     url = f"{pb_base_url}/api/collections/products/records?{query}"
     payload = http_json(url)
     items = payload.get("items", []) if payload else []
@@ -85,9 +83,15 @@ def fetch_product_records(pb_base_url: str, product_names: List[str]) -> dict:
         raise LooperCliError("Invalid products response payload")
 
     for item in items:
-        slug = item.get("slug")
+        slug = str(item.get("slug", "")).strip()
+        item_id = str(item.get("id", "")).strip()
         if slug:
-            product_map[str(slug)] = item
+            product_map[slug] = item
+            normalized_slug = normalize_product_name(slug)
+            if normalized_slug:
+                product_map[normalized_slug] = item
+        if item_id:
+            product_map[item_id] = item
     return product_map
 
 
@@ -98,11 +102,19 @@ def filter_ota_records_by_device(
         return records
 
     id_set = {
-        item.get("id")
+        str(item.get("id", "")).strip()
         for item in product_map.values()
-        if item.get("id")
+        if str(item.get("id", "")).strip()
     }
-    slug_set = set(product_map.keys()) or {name for name in product_names if name}
+    slug_set = {
+        str(name).strip() for name in product_map.keys() if str(name).strip()
+    }
+    normalized_slug_set = {
+        normalize_product_name(name) for name in slug_set if name
+    }
+    normalized_product_name_set = {
+        normalize_product_name(name) for name in product_names if name
+    }
 
     valid_records: List[dict] = []
     for record in records:
@@ -123,7 +135,13 @@ def filter_ota_records_by_device(
             ota_products = [str(product_field).strip()]
 
         for ota_product in ota_products:
-            if ota_product in slug_set or ota_product in id_set:
+            normalized_ota_product = normalize_product_name(ota_product)
+            if (
+                ota_product in slug_set
+                or ota_product in id_set
+                or normalized_ota_product in normalized_slug_set
+                or normalized_ota_product in normalized_product_name_set
+            ):
                 valid_records.append(record)
                 break
 

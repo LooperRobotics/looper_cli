@@ -28,6 +28,9 @@ Versions `1.2.3` and earlier correspond to commit: `d5efdabb2088c735a3592ab7a29e
 
 Versions `1.2.4` through `1.2.5` correspond to commit:`5930bb25a6d7f2902c6e89fe80f62007195a16f4`
 
+Versions `2.0.0` through `2.1.0` correspond to commit: `ffbd22299a73dc725af33c73a3ffe6c129ad54c4`
+
+
 ## Repository Layout
 
 - `looper_cli.py`: CLI entry script
