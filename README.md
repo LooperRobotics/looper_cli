@@ -20,6 +20,7 @@ Current capability coverage:
 - Calibration mode status, switching, calibration parameter upload, and calibration backup restore
 - Camera FPS configuration inspection and update
 - Deep flow (depth estimation) switch inspection and toggling
+- ZUPT (`use_zupt` in the VIO config) inspection and toggling with an insight_full restart
 - System log retrieval, with diagnostic snapshot fallback when the log API is unavailable
 
 ## Version Commit Mapping
@@ -180,6 +181,13 @@ python3 looper_cli.py deep-flow disable -y
 # Display deep flow state as JSON
 python3 looper_cli.py deep-flow show --json
 
+# View the current use_zupt value in the VIO config
+python3 looper_cli.py zupt show
+# Set use_zupt to true and restart insight_full
+python3 looper_cli.py zupt enable -y
+# Set use_zupt to false and restart insight_full
+python3 looper_cli.py zupt disable -y
+
 # View all monitored device status information
 python3 looper_cli.py logs fetch
 # Write device status information to a file
@@ -285,6 +293,14 @@ When OTA-related commands are executed, the CLI currently works as follows:
 - `show` reports the current state; `--json` outputs the raw response payload
 - `enable` and `disable` write `/api/deep-flow` and restart the camera service to apply the change
 
+`zupt show`, `zupt enable`, and `zupt disable`
+
+- Manage the `use_zupt` parameter stored in `/userdata/install/share/example/config/looper.vio.json` on the device
+- The config file is read and written over **SSH** (the firmware exposes no HTTP API for this file); `show` prints the current value and `--json` prints the raw file contents
+- `enable` sets `use_zupt` to `true`, `disable` sets it to `false`; both then restart insight_full over HTTP (`/api/insight-stop` followed by `/api/insight-start`) to apply the change
+- SSH host defaults to the detected device endpoint host; override with `--ssh-host`, `--ssh-user` (default `root`), `--ssh-port` (default `22`), and `--config-path`
+- SSH authentication uses your local SSH setup (key or interactive password prompt); a single connection is reused for the read and write so you are prompted for a password at most once
+
 `logs fetch`
 
 - Attempts known log download APIs first
@@ -318,6 +334,10 @@ The current CLI covers these confirmed device-local APIs:
 - `/api/restore` (restore backup files)
 - `/api/camera-fps` (GET/POST camera FPS configuration)
 - `/api/deep-flow` (GET/POST deep flow switch configuration)
+
+The `zupt` commands do not use an HTTP API for the config file itself; they edit
+`/userdata/install/share/example/config/looper.vio.json` over SSH and then call
+`/api/insight-stop` and `/api/insight-start` to restart the service.
 
 ## Troubleshooting
 

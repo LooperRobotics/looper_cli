@@ -34,6 +34,8 @@ from looper_cli.device import (
     system_time_show,
     time_sync_set_enabled,
     time_sync_status,
+    zupt_set,
+    zupt_show,
 )
 from looper_cli.errors import CommandNotImplementedError, LooperCliError
 from looper_cli.ota import print_release_list, run_ota_upgrade
@@ -218,6 +220,18 @@ def command_insight_stop(args) -> int:
     return insightfull_stop(args, DeviceSession(args.device_base_url))
 
 
+def command_zupt_show(args) -> int:
+    return zupt_show(args, DeviceSession(args.device_base_url))
+
+
+def command_zupt_enable(args) -> int:
+    return zupt_set(args, DeviceSession(args.device_base_url), enabled=True)
+
+
+def command_zupt_disable(args) -> int:
+    return zupt_set(args, DeviceSession(args.device_base_url), enabled=False)
+
+
 def help_command(args) -> int:
     parser = build_parser()
     if args.topic:
@@ -317,6 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
             "camera",
             "fps",
             "deep-flow",
+            "zupt",
             "enable",
             "disable",
             "logs",
@@ -1152,6 +1167,92 @@ def build_parser() -> argparse.ArgumentParser:
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
     deep_flow_disable_parser.set_defaults(func=command_deep_flow_disable)
+
+    zupt_parser = subparsers.add_parser(
+        "zupt",
+        help="ZUPT (use_zupt) switch commands",
+        **_help_text(
+            "Inspect or toggle the use_zupt parameter in the device VIO config file "
+            "(/userdata/install/share/example/config/looper.vio.json). The file is edited "
+            "over SSH; enable/disable then restart insight_full over HTTP to apply the change.",
+            [
+                "python3 looper_cli.py zupt show",
+                "python3 looper_cli.py zupt enable -y",
+                "python3 looper_cli.py zupt disable -y",
+            ],
+        ),
+    )
+    zupt_subparsers = zupt_parser.add_subparsers(dest="zupt_command", required=True)
+
+    def _add_zupt_ssh_args(target_parser) -> None:
+        target_parser.add_argument(
+            "--ssh-host",
+            help="Device SSH host; defaults to the detected device endpoint host",
+        )
+        target_parser.add_argument(
+            "--ssh-user",
+            default="root",
+            help="Device SSH username (default: root)",
+        )
+        target_parser.add_argument(
+            "--ssh-port",
+            type=int,
+            default=22,
+            help="Device SSH port (default: 22)",
+        )
+        target_parser.add_argument(
+            "--config-path",
+            help="Path to the VIO config file on the device "
+            "(default: /userdata/install/share/example/config/looper.vio.json)",
+        )
+
+    zupt_show_parser = zupt_subparsers.add_parser(
+        "show",
+        help="Show the current use_zupt value",
+        **_help_text(
+            "Read the VIO config file over SSH and show the current use_zupt value.",
+            [
+                "python3 looper_cli.py zupt show",
+                "python3 looper_cli.py zupt show --json",
+                "python3 looper_cli.py zupt show --ssh-user root --ssh-host 169.254.10.1",
+            ],
+        ),
+    )
+    zupt_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw VIO config file contents",
+    )
+    _add_zupt_ssh_args(zupt_show_parser)
+    zupt_show_parser.set_defaults(func=command_zupt_show)
+    zupt_enable_parser = zupt_subparsers.add_parser(
+        "enable",
+        help="Set use_zupt to true and restart insight_full",
+        **_help_text(
+            "Set use_zupt to true in the device VIO config file over SSH, then restart "
+            "insight_full over HTTP to apply the change.",
+            ["python3 looper_cli.py zupt enable -y"],
+        ),
+    )
+    _add_zupt_ssh_args(zupt_enable_parser)
+    zupt_enable_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    zupt_enable_parser.set_defaults(func=command_zupt_enable)
+    zupt_disable_parser = zupt_subparsers.add_parser(
+        "disable",
+        help="Set use_zupt to false and restart insight_full",
+        **_help_text(
+            "Set use_zupt to false in the device VIO config file over SSH, then restart "
+            "insight_full over HTTP to apply the change.",
+            ["python3 looper_cli.py zupt disable -y"],
+        ),
+    )
+    _add_zupt_ssh_args(zupt_disable_parser)
+    zupt_disable_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    zupt_disable_parser.set_defaults(func=command_zupt_disable)
 
     ros_parser = subparsers.add_parser(
         "ros",

@@ -20,6 +20,7 @@
 - 查看/切换校准模式、上传校准参数和校准备份恢复
 - 摄像头帧率配置的查询和更新
 - 深度流（深度估计）开关的查询和切换
+- ZUPT（VIO 配置中的 `use_zupt` 参数）的查询和切换，并重启 insight_full
 - 获取系统日志，或在无日志接口时回退到诊断快照
 
 
@@ -184,6 +185,13 @@ python3 looper_cli.py deep-flow disable -y
 # 以 JSON 格式显示深度流状态
 python3 looper_cli.py deep-flow show --json
 
+# 查看 VIO 配置中当前的 use_zupt 值
+python3 looper_cli.py zupt show
+# 将 use_zupt 设置为 true 并重启 insight_full
+python3 looper_cli.py zupt enable -y
+# 将 use_zupt 设置为 false 并重启 insight_full
+python3 looper_cli.py zupt disable -y
+
 # 查看设备所有监控的状态信息
 python3 looper_cli.py logs fetch
 # 将设备状态信息输入到文件
@@ -290,6 +298,14 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - `show` 查看当前状态，`--json` 输出原始响应数据
 - `enable` 与 `disable` 写入 `/api/deep-flow` 并重启相机服务以使配置生效
 
+`zupt show`、`zupt enable` 与 `zupt disable`
+
+- 管理设备上 `/userdata/install/share/example/config/looper.vio.json` 中的 `use_zupt` 参数
+- 该配置文件通过 **SSH** 读写（固件未提供操作该文件的 HTTP 接口）；`show` 显示当前值，`--json` 输出文件原始内容
+- `enable` 将 `use_zupt` 设置为 `true`，`disable` 设置为 `false`，随后通过 HTTP（`/api/insight-stop` 后 `/api/insight-start`）重启 insight_full 以使配置生效
+- SSH 主机默认取自动检测到的设备地址，可用 `--ssh-host`、`--ssh-user`（默认 `root`）、`--ssh-port`（默认 `22`）、`--config-path` 覆盖
+- SSH 认证使用本机的 SSH 配置（密钥或交互式密码提示）；读写复用同一条连接，最多只需输入一次密码
+
 `logs fetch`
 
 - 会优先尝试已知的日志下载接口
@@ -323,6 +339,8 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - `/api/restore` (恢复备份文件)
 - `/api/camera-fps` (GET/POST 摄像头帧率配置)
 - `/api/deep-flow` (GET/POST 深度流开关配置)
+
+`zupt` 命令不通过 HTTP 接口操作配置文件本身，而是通过 SSH 编辑 `/userdata/install/share/example/config/looper.vio.json`，再调用 `/api/insight-stop` 与 `/api/insight-start` 重启服务。
 
 ## 故障排查
 

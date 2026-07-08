@@ -2,11 +2,14 @@ import concurrent.futures
 import json
 from dataclasses import dataclass
 import os
+import shlex
 import statistics
+import subprocess
+import tempfile
 import time
 from typing import Optional
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from looper_cli import DEFAULT_DEVICE_BASE_URLS, DEVICE_DETECTION_TIMEOUT, PRODUCT_NAME
@@ -71,6 +74,9 @@ INSIGHT_STOP_ENDPOINT_CANDIDATES = [
 ]
 OTA_DEVICE_VERSIONS_ENDPOINT = "/api/ota/device-versions"
 SYSTEM_RECOVERY_ENDPOINT = "/api/system/recovery"
+VIO_CONFIG_FILE_PATH = "/userdata/install/share/example/config/looper.vio.json"
+DEFAULT_SSH_USER = "root"
+DEFAULT_SSH_PORT = 22
 
 
 def normalize_device_base_url(url: str) -> str:
@@ -688,6 +694,197 @@ def insightfull_stop(_arg, session: DeviceSession) -> int:
     )
     message = payload.get("message") if isinstance(payload, dict) else None
     log(message or f"Insightfull stopped successfully via {path}")
+    return 0
+
+
+def _restart_insightfull(session: DeviceSession) -> None:
+    stop_path, stop_payload = _try_post_candidates(
+        session, INSIGHT_STOP_ENDPOINT_CANDIDATES, {}, "stop insightfull"
+    )
+    message = stop_payload.get("message") if isinstance(stop_payload, dict) else None
+    log(message or f"Insightfull stopped successfully via {stop_path}")
+    time.sleep(2)
+    start_path, start_payload = _try_post_candidates(
+        session, INSIGHT_START_ENDPOINT_CANDIDATES, {}, "start insightfull"
+    )
+    message = start_payload.get("message") if isinstance(start_payload, dict) else None
+    log(message or f"Insightfull started successfully via {start_path}")
+
+
+def _find_use_zupt_container(node):
+    if isinstance(node, dict):
+        if "use_zupt" in node:
+            return node
+        for value in node.values():
+            found = _find_use_zupt_container(value)
+            if found is not None:
+                return found
+    elif isinstance(node, list):
+        for item in node:
+            found = _find_use_zupt_container(item)
+            if found is not None:
+                return found
+    return None
+
+
+def _ssh_host(args, session: DeviceSession) -> str:
+    explicit = getattr(args, "ssh_host", None)
+    if explicit:
+        return explicit
+    parsed = urlparse(session.ensure_resolved())
+    host = parsed.hostname
+    if not host:
+        raise LooperCliError(
+            "Could not determine the device SSH host; pass --ssh-host explicitly"
+        )
+    return host
+
+
+def _ssh_base_cmd(args, session: DeviceSession, control_path: str) -> list[str]:
+    host = _ssh_host(args, session)
+    user = getattr(args, "ssh_user", None) or DEFAULT_SSH_USER
+    port = getattr(args, "ssh_port", None) or DEFAULT_SSH_PORT
+    return [
+        "ssh",
+        "-p",
+        str(port),
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "UserKnownHostsFile=/dev/null",
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        f"ControlPath={control_path}",
+        "-o",
+        "ControlPersist=30",
+        f"{user}@{host}",
+    ]
+
+
+def _ssh_read_file(base_cmd: list[str], remote_path: str) -> str:
+    cmd = base_cmd + [f"cat {shlex.quote(remote_path)}"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise LooperCliError(
+            f"Failed to read {remote_path} over SSH: "
+            f"{result.stderr.strip() or 'ssh exited with code ' + str(result.returncode)}"
+        )
+    return result.stdout
+
+
+def _ssh_write_file(base_cmd: list[str], remote_path: str, content: str) -> None:
+    quoted = shlex.quote(remote_path)
+    tmp = shlex.quote(remote_path + ".loopercli.tmp")
+    remote_cmd = f"cat > {tmp} && mv {tmp} {quoted}"
+    cmd = base_cmd + [remote_cmd]
+    result = subprocess.run(cmd, input=content, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise LooperCliError(
+            f"Failed to write {remote_path} over SSH: "
+            f"{result.stderr.strip() or 'ssh exited with code ' + str(result.returncode)}"
+        )
+
+
+def _ssh_close_master(base_cmd: list[str]) -> None:
+    # base_cmd ends with the user@host target; -O exit closes the shared master.
+    target = base_cmd[-1]
+    options = base_cmd[1:-1]
+    subprocess.run(
+        ["ssh", *options, "-O", "exit", target],
+        capture_output=True,
+        text=True,
+    )
+
+
+def _control_path() -> str:
+    return os.path.join(tempfile.gettempdir(), f"looper-cli-ssh-{os.getpid()}")
+
+
+def _read_remote_vio_config(base_cmd: list[str], remote_path: str):
+    raw = _ssh_read_file(base_cmd, remote_path)
+    try:
+        return raw, json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise LooperCliError(
+            f"Could not parse {remote_path} as JSON: {exc}"
+        ) from exc
+
+
+def zupt_show(args, session: DeviceSession) -> int:
+    remote_path = getattr(args, "config_path", None) or VIO_CONFIG_FILE_PATH
+    control_path = _control_path()
+    base_cmd = _ssh_base_cmd(args, session, control_path)
+    try:
+        raw, config = _read_remote_vio_config(base_cmd, remote_path)
+    finally:
+        _ssh_close_master(base_cmd)
+
+    if args.json:
+        print(raw, end="" if raw.endswith("\n") else "\n")
+        return 0
+
+    container = _find_use_zupt_container(config)
+    if container is None:
+        raise LooperCliError(
+            f"Parameter 'use_zupt' was not found in {remote_path}"
+        )
+    value = container["use_zupt"]
+    state = "on" if str(value).lower() in {"true", "1"} else "off"
+    _print_key_values(
+        "ZUPT",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Config File", remote_path),
+            ("use_zupt", f"{value} ({state})"),
+        ],
+    )
+    return 0
+
+
+def zupt_set(args, session: DeviceSession, enabled: bool) -> int:
+    action = "enable" if enabled else "disable"
+    target_text = "true" if enabled else "false"
+    remote_path = getattr(args, "config_path", None) or VIO_CONFIG_FILE_PATH
+    if not args.yes:
+        answer = (
+            input(
+                f"Set use_zupt to {target_text} in {remote_path} "
+                f"and restart insight_full? [y/N]: "
+            )
+            .strip()
+            .lower()
+        )
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+
+    control_path = _control_path()
+    base_cmd = _ssh_base_cmd(args, session, control_path)
+    try:
+        raw, config = _read_remote_vio_config(base_cmd, remote_path)
+        container = _find_use_zupt_container(config)
+        if container is None:
+            raise LooperCliError(
+                f"Parameter 'use_zupt' was not found in {remote_path}"
+            )
+
+        current = container["use_zupt"]
+        # Preserve the value type stored in looper.vio.json (bool vs string).
+        new_value = target_text if isinstance(current, str) else enabled
+        if current == new_value:
+            log(f"use_zupt is already {target_text}; restarting insight_full anyway")
+        else:
+            container["use_zupt"] = new_value
+            # Keep 2-space indentation and a trailing newline, matching the device file.
+            updated = json.dumps(config, indent=2, ensure_ascii=False) + "\n"
+            _ssh_write_file(base_cmd, remote_path, updated)
+            log(f"use_zupt set to {target_text} in {remote_path}")
+    finally:
+        _ssh_close_master(base_cmd)
+
+    _restart_insightfull(session)
+    log(f"ZUPT {action}d and insight_full restarted successfully")
     return 0
 
 
