@@ -1,3 +1,4 @@
+import atexit
 import concurrent.futures
 import json
 from dataclasses import dataclass
@@ -740,11 +741,39 @@ def _ssh_host(args, session: DeviceSession) -> str:
     return host
 
 
+SSH_PASSWORD_ENV = "LOOPER_SSH_PASSWORD"
+_ASKPASS_PATH: Optional[str] = None
+
+
+def _ssh_password() -> Optional[str]:
+    password = os.environ.get(SSH_PASSWORD_ENV)
+    return password if password else None
+
+
+def _askpass_helper() -> str:
+    """Return a helper script that prints the SSH password read from the env var.
+
+    The password itself is never written to disk; the helper only echoes the
+    value of LOOPER_SSH_PASSWORD, which is passed through to the ssh subprocess
+    environment.
+    """
+    global _ASKPASS_PATH
+    if _ASKPASS_PATH and os.path.exists(_ASKPASS_PATH):
+        return _ASKPASS_PATH
+    fd, path = tempfile.mkstemp(prefix="looper-cli-askpass-", suffix=".sh")
+    with os.fdopen(fd, "w") as handle:
+        handle.write(f'#!/bin/sh\nprintf \'%s\\n\' "${SSH_PASSWORD_ENV}"\n')
+    os.chmod(path, 0o700)
+    _ASKPASS_PATH = path
+    atexit.register(lambda: os.path.exists(path) and os.remove(path))
+    return path
+
+
 def _ssh_base_cmd(args, session: DeviceSession, control_path: str) -> list[str]:
     host = _ssh_host(args, session)
     user = getattr(args, "ssh_user", None) or DEFAULT_SSH_USER
     port = getattr(args, "ssh_port", None) or DEFAULT_SSH_PORT
-    return [
+    cmd = [
         "ssh",
         "-p",
         str(port),
@@ -758,13 +787,43 @@ def _ssh_base_cmd(args, session: DeviceSession, control_path: str) -> list[str]:
         f"ControlPath={control_path}",
         "-o",
         "ControlPersist=30",
-        f"{user}@{host}",
     ]
+    if _ssh_password():
+        # Force password auth so offering local keys cannot trip the server's
+        # "too many authentication failures" limit before the password is tried.
+        cmd += [
+            "-o",
+            "PubkeyAuthentication=no",
+            "-o",
+            "PreferredAuthentications=password,keyboard-interactive",
+            "-o",
+            "NumberOfPasswordPrompts=1",
+        ]
+    cmd.append(f"{user}@{host}")
+    return cmd
+
+
+def _ssh_run(cmd: list[str], input_text: Optional[str] = None):
+    """Run an ssh subprocess, wiring up non-interactive password auth if set."""
+    kwargs = {"capture_output": True, "text": True}
+    if input_text is not None:
+        kwargs["input"] = input_text
+    if _ssh_password():
+        env = os.environ.copy()
+        env["SSH_ASKPASS"] = _askpass_helper()
+        # SSH_ASKPASS_REQUIRE=force makes ssh use the helper even with a tty;
+        # a non-empty DISPLAY is required by older ssh builds.
+        env["SSH_ASKPASS_REQUIRE"] = "force"
+        env.setdefault("DISPLAY", ":0")
+        kwargs["env"] = env
+        # Detach from any controlling terminal so ssh falls back to askpass.
+        kwargs["start_new_session"] = True
+    return subprocess.run(cmd, **kwargs)
 
 
 def _ssh_read_file(base_cmd: list[str], remote_path: str) -> str:
     cmd = base_cmd + [f"cat {shlex.quote(remote_path)}"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = _ssh_run(cmd)
     if result.returncode != 0:
         raise LooperCliError(
             f"Failed to read {remote_path} over SSH: "
@@ -778,7 +837,7 @@ def _ssh_write_file(base_cmd: list[str], remote_path: str, content: str) -> None
     tmp = shlex.quote(remote_path + ".loopercli.tmp")
     remote_cmd = f"cat > {tmp} && mv {tmp} {quoted}"
     cmd = base_cmd + [remote_cmd]
-    result = subprocess.run(cmd, input=content, capture_output=True, text=True)
+    result = _ssh_run(cmd, input_text=content)
     if result.returncode != 0:
         raise LooperCliError(
             f"Failed to write {remote_path} over SSH: "
@@ -790,11 +849,7 @@ def _ssh_close_master(base_cmd: list[str]) -> None:
     # base_cmd ends with the user@host target; -O exit closes the shared master.
     target = base_cmd[-1]
     options = base_cmd[1:-1]
-    subprocess.run(
-        ["ssh", *options, "-O", "exit", target],
-        capture_output=True,
-        text=True,
-    )
+    _ssh_run(["ssh", *options, "-O", "exit", target])
 
 
 def _control_path() -> str:

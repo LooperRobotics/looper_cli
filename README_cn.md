@@ -305,6 +305,20 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - `enable` 将 `use_zupt` 设置为 `true`，`disable` 设置为 `false`，随后通过 HTTP（`/api/insight-stop` 后 `/api/insight-start`）重启 insight_full 以使配置生效
 - SSH 主机默认取自动检测到的设备地址，可用 `--ssh-host`、`--ssh-user`（默认 `root`）、`--ssh-port`（默认 `22`）、`--config-path` 覆盖
 - SSH 认证使用本机的 SSH 配置（密钥或交互式密码提示）；读写复用同一条连接，最多只需输入一次密码
+- 用于非交互 / 脚本化运行时，可设置环境变量 `LOOPER_SSH_PASSWORD`——CLI 会通过临时的 askpass 辅助脚本自动把密码提供给 SSH,无需终端提示,且密码不会出现在命令行参数中。仓库提供了现成封装脚本 `scripts/zupt_disable.sh` 与 `scripts/zupt_enable.sh`:
+
+```bash
+# 方式 A:先导出密码,再运行封装脚本
+export LOOPER_SSH_PASSWORD='设备密码'
+./scripts/zupt_disable.sh        # use_zupt = false,随后重启 insight_full
+./scripts/zupt_enable.sh         # use_zupt = true,随后重启 insight_full
+
+# 方式 B:内联设置密码(同样不会被 `ps` 看到)
+LOOPER_SSH_PASSWORD='设备密码' python3 looper_cli.py zupt disable -y
+
+# 非默认 SSH 用户/主机也可通过封装脚本传入
+./scripts/zupt_enable.sh --ssh-user root --ssh-host 169.254.10.1
+```
 
 `logs fetch`
 

@@ -300,6 +300,20 @@ When OTA-related commands are executed, the CLI currently works as follows:
 - `enable` sets `use_zupt` to `true`, `disable` sets it to `false`; both then restart insight_full over HTTP (`/api/insight-stop` followed by `/api/insight-start`) to apply the change
 - SSH host defaults to the detected device endpoint host; override with `--ssh-host`, `--ssh-user` (default `root`), `--ssh-port` (default `22`), and `--config-path`
 - SSH authentication uses your local SSH setup (key or interactive password prompt); a single connection is reused for the read and write so you are prompted for a password at most once
+- For non-interactive / scripted runs, set the `LOOPER_SSH_PASSWORD` environment variable — the CLI supplies it to SSH automatically (via an ephemeral askpass helper), so no terminal prompt is needed and the password never appears on the command line. The ready-made wrappers `scripts/zupt_disable.sh` and `scripts/zupt_enable.sh` use this mechanism:
+
+```bash
+# Option A: export the password, then run the wrapper
+export LOOPER_SSH_PASSWORD='your-device-password'
+./scripts/zupt_disable.sh        # use_zupt = false, then restart insight_full
+./scripts/zupt_enable.sh         # use_zupt = true,  then restart insight_full
+
+# Option B: set the password inline (still hidden from `ps`)
+LOOPER_SSH_PASSWORD='your-device-password' python3 looper_cli.py zupt disable -y
+
+# Non-default SSH user/host still work through the wrappers
+./scripts/zupt_enable.sh --ssh-user root --ssh-host 169.254.10.1
+```
 
 `logs fetch`
 
