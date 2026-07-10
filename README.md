@@ -19,6 +19,7 @@ Current capability coverage:
 - Restore-to-factory shallow and deep recovery
 - Calibration mode status, switching, calibration parameter upload, and calibration backup restore
 - Camera FPS configuration inspection and update
+- Sensor pose covariance publish inspection and update
 - Deep flow (depth estimation) switch inspection and toggling
 - System log retrieval, with diagnostic snapshot fallback when the log API is unavailable
 
@@ -170,6 +171,13 @@ python3 looper_cli.py camera fps --fps 30 -y
 python3 looper_cli.py camera fps --fps 60 -y
 # Display camera FPS as JSON
 python3 looper_cli.py camera fps --json
+
+# View current sensor pose covariance publish setting
+python3 looper_cli.py sensor pose-cov show
+# Enable pose covariance publishing
+python3 looper_cli.py sensor pose-cov enable -y
+# Disable pose covariance publishing
+python3 looper_cli.py sensor pose-cov disable -y
 
 # View current deep flow switch state
 python3 looper_cli.py deep-flow show

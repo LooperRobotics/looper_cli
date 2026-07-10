@@ -175,6 +175,13 @@ python3 looper_cli.py camera fps --fps 60 -y
 # 以 JSON 格式显示摄像头帧率
 python3 looper_cli.py camera fps --json
 
+# 查看当前传感器姿态协方差发布设置
+python3 looper_cli.py sensor pose-cov show
+# 开启姿态协方差发布
+python3 looper_cli.py sensor pose-cov enable -y
+# 关闭姿态协方差发布
+python3 looper_cli.py sensor pose-cov disable -y
+
 # 查看当前深度流开关状态
 python3 looper_cli.py deep-flow show
 # 开启深度流
@@ -321,6 +328,7 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - `/api/ota/ws`
 - `/api/upload` (支持备份现有文件的多部分表单文件上传)
 - `/api/restore` (恢复备份文件)
+- `/api/sensor-pose-cov` (GET/POST publish_pose_cov 配置)
 - `/api/camera-fps` (GET/POST 摄像头帧率配置)
 - `/api/deep-flow` (GET/POST 深度流开关配置)
 

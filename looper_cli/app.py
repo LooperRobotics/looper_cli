@@ -28,6 +28,8 @@ from looper_cli.device import (
     ros_domain_id_show,
     ros_topic_set,
     ros_topic_show,
+    sensor_pose_cov_set,
+    sensor_pose_cov_show,
     system_recovery,
     system_info_show,
     system_sync_time,
@@ -132,6 +134,18 @@ def command_deep_flow_enable(args) -> int:
 
 def command_deep_flow_disable(args) -> int:
     return deep_flow_set(args, DeviceSession(args.device_base_url), enabled=False)
+
+
+def command_sensor_pose_cov_show(args) -> int:
+    return sensor_pose_cov_show(args, DeviceSession(args.device_base_url))
+
+
+def command_sensor_pose_cov_enable(args) -> int:
+    return sensor_pose_cov_set(args, DeviceSession(args.device_base_url), enabled=True)
+
+
+def command_sensor_pose_cov_disable(args) -> int:
+    return sensor_pose_cov_set(args, DeviceSession(args.device_base_url), enabled=False)
 
 
 def command_logs_fetch(args) -> int:
@@ -1152,6 +1166,77 @@ def build_parser() -> argparse.ArgumentParser:
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
     deep_flow_disable_parser.set_defaults(func=command_deep_flow_disable)
+
+    sensor_parser = subparsers.add_parser(
+        "sensor",
+        help="Sensor settings commands",
+        **_help_text(
+            "Inspect or toggle sensor-related configuration, including pose covariance publishing.",
+            [
+                "python3 looper_cli.py sensor pose-cov show",
+                "python3 looper_cli.py sensor pose-cov enable -y",
+                "python3 looper_cli.py sensor pose-cov disable -y",
+            ],
+        ),
+    )
+    sensor_subparsers = sensor_parser.add_subparsers(
+        dest="sensor_command", required=True
+    )
+    sensor_pose_cov_parser = sensor_subparsers.add_parser(
+        "pose-cov",
+        help="Pose covariance publish setting",
+        **_help_text(
+            "Show or toggle the publish_pose_cov sensor setting.",
+            [
+                "python3 looper_cli.py sensor pose-cov show",
+                "python3 looper_cli.py sensor pose-cov enable -y",
+                "python3 looper_cli.py sensor pose-cov disable -y",
+            ],
+        ),
+    )
+    sensor_pose_cov_subparsers = sensor_pose_cov_parser.add_subparsers(
+        dest="sensor_pose_cov_command", required=True
+    )
+    sensor_pose_cov_show_parser = sensor_pose_cov_subparsers.add_parser(
+        "show",
+        help="Show whether pose covariance publishing is enabled",
+        **_help_text(
+            "Show whether the sensor publish_pose_cov setting is enabled.",
+            ["python3 looper_cli.py sensor pose-cov show"],
+        ),
+    )
+    sensor_pose_cov_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw sensor pose covariance JSON response",
+    )
+    sensor_pose_cov_show_parser.set_defaults(func=command_sensor_pose_cov_show)
+
+    sensor_pose_cov_enable_parser = sensor_pose_cov_subparsers.add_parser(
+        "enable",
+        help="Enable pose covariance publishing",
+        **_help_text(
+            "Turn on publish_pose_cov on the device.",
+            ["python3 looper_cli.py sensor pose-cov enable -y"],
+        ),
+    )
+    sensor_pose_cov_enable_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    sensor_pose_cov_enable_parser.set_defaults(func=command_sensor_pose_cov_enable)
+
+    sensor_pose_cov_disable_parser = sensor_pose_cov_subparsers.add_parser(
+        "disable",
+        help="Disable pose covariance publishing",
+        **_help_text(
+            "Turn off publish_pose_cov on the device.",
+            ["python3 looper_cli.py sensor pose-cov disable -y"],
+        ),
+    )
+    sensor_pose_cov_disable_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    sensor_pose_cov_disable_parser.set_defaults(func=command_sensor_pose_cov_disable)
 
     ros_parser = subparsers.add_parser(
         "ros",

@@ -33,6 +33,7 @@ CALIBRATION_UPLOAD_CANDIDATES = [
 RESTORE_ENDPOINT = "/api/restore"
 CAMERA_FPS_ENDPOINT = "/api/camera-fps"
 DEEP_FLOW_ENDPOINT = "/api/deep-flow"
+SENSOR_POSE_COV_ENDPOINT = "/api/sensor-pose-cov"
 ROS_DOMAIN_ID_ENDPOINT = "/api/ros-domain-id"
 CAMERA_CONFIG_ENDPOINT = "/api/camera-config"
 REBOOT_ENDPOINT_CANDIDATES = [
@@ -856,6 +857,53 @@ def deep_flow_set(args, session: DeviceSession, enabled: bool) -> int:
         )
         raise LooperCliError(f"Deep flow update failed: {message}")
     log(payload.get("message") or f"Deep flow {action}d successfully")
+    return 0
+
+
+def sensor_pose_cov_show(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, SENSOR_POSE_COV_ENDPOINT)
+    if args.json:
+        print_json(payload)
+        return 0
+    if not isinstance(payload, dict) or not payload.get("success"):
+        raise LooperCliError("Failed to read sensor pose covariance setting")
+    data = payload.get("data") or {}
+    publish_pose_cov = data.get("publish_pose_cov")
+    state = "on" if publish_pose_cov else "off"
+    _print_key_values(
+        "Sensor Pose Covariance",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Publish Pose Cov", state),
+        ],
+    )
+    return 0
+
+
+def sensor_pose_cov_set(args, session: DeviceSession, enabled: bool) -> int:
+    action = "enable" if enabled else "disable"
+    if not args.yes:
+        answer = (
+            input(f"Proceed to {action} sensor pose covariance? [y/N]: ")
+            .strip()
+            .lower()
+        )
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+
+    payload = _device_json_post(
+        session,
+        SENSOR_POSE_COV_ENDPOINT,
+        {"publish_pose_cov": enabled},
+        timeout=30.0,
+    )
+    if not isinstance(payload, dict) or not payload.get("success"):
+        message = (
+            payload.get("message") if isinstance(payload, dict) else "request failed"
+        )
+        raise LooperCliError(f"Sensor pose covariance update failed: {message}")
+    log(payload.get("message") or f"Sensor pose covariance {action}d successfully")
     return 0
 
 
