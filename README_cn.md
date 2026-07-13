@@ -168,10 +168,9 @@ python3 looper_cli.py calibration restore
 
 # 查看当前摄像头帧率设置
 python3 looper_cli.py camera fps
-# 设置摄像头帧率为 30
+# 设置摄像头帧率为 30，可支持的fps有20，30，40，50
 python3 looper_cli.py camera fps --fps 30 -y
-# 设置摄像头帧率为 60
-python3 looper_cli.py camera fps --fps 60 -y
+
 # 以 JSON 格式显示摄像头帧率
 python3 looper_cli.py camera fps --json
 
@@ -287,7 +286,7 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 `camera fps`
 
 - 查询或配置摄像头帧率
-- 支持 20、30 和 60 FPS 三个值
+- 支持 20、30、40 和 50 FPS 四个值
 - 不带 `--fps` 参数调用时返回当前帧率设置
 - 设置新的帧率值会重启设备以使配置生效
 

@@ -1097,8 +1097,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     camera_fps_parser.add_argument(
         "--fps",
-        choices=["20", "30", "60"],
-        help="Optional target FPS value: 20, 30, or 60",
+        choices=["20", "30", "40", "50"],
+        help="Optional target FPS value: 20, 30, 40, or 50",
     )
     camera_fps_parser.add_argument(
         "--json",

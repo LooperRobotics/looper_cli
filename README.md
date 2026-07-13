@@ -165,10 +165,10 @@ python3 looper_cli.py calibration restore
 
 # View current camera FPS setting
 python3 looper_cli.py camera fps
-# Set camera FPS to 30
+
+#Set the camera frame rate to 30, with supported fps of 20, 30, 40, and 50
 python3 looper_cli.py camera fps --fps 30 -y
-# Set camera FPS to 60
-python3 looper_cli.py camera fps --fps 60 -y
+
 # Display camera FPS as JSON
 python3 looper_cli.py camera fps --json
 
@@ -283,7 +283,7 @@ When OTA-related commands are executed, the CLI currently works as follows:
 `camera fps`
 
 - Query or configure the camera frame rate
-- Supports 20, 30, and 60 FPS values
+- Supports 20, 30, 40, and 50 FPS values
 - Returns the current FPS setting when called without `--fps`
 - Setting a new FPS value reboots the device to apply the change
 

@@ -764,8 +764,8 @@ def calibration_restore(args, session: DeviceSession) -> int:
 
 def camera_fps(args, session: DeviceSession) -> int:
     if args.fps:
-        if args.fps not in {"20", "30", "60"}:
-            raise LooperCliError("Invalid fps. Supported values are 20, 30, or 60")
+        if args.fps not in {"20", "30", "40", "50"}:
+            raise LooperCliError("Invalid fps. Supported values are 20, 30, 40, or 50")
         if not args.yes:
             answer = input(
                 f"Set camera FPS to {args.fps}? [y/N]: "
