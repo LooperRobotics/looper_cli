@@ -21,6 +21,7 @@ Current capability coverage:
 - Camera FPS configuration inspection and update
 - Sensor pose covariance publish inspection and update
 - Deep flow (depth estimation) switch inspection and toggling
+- Detection model setting inspection and update, aligned with the Web Model Settings page
 - System log retrieval, with diagnostic snapshot fallback when the log API is unavailable
 
 ## Version Commit Mapping
@@ -188,6 +189,13 @@ python3 looper_cli.py deep-flow disable -y
 # Display deep flow state as JSON
 python3 looper_cli.py deep-flow show --json
 
+# Show detection model settings from the Web Model Settings API
+python3 looper_cli.py model-setting show
+# Enable detection mode and update the label name
+python3 looper_cli.py model-setting set --enable --label-name object -y
+# Disable detection mode
+python3 looper_cli.py model-setting set --disable -y
+
 # View all monitored device status information
 python3 looper_cli.py logs fetch
 # Write device status information to a file
@@ -250,6 +258,12 @@ When OTA-related commands are executed, the CLI currently works as follows:
 - Aggregates CPU, memory, temperature, uptime, IP, and related information
 - Includes the same time sync status used by the Web Time Sync page
 - `--json` outputs the raw data
+
+`model-setting show` and `model-setting set`
+
+- Mirror the Web Model Settings page and call `/api/model-setting`
+- Read the current `enabled`, `labelName`, and `currentModel` values
+- Support `--enable`, `--disable`, and `--label-name` to update the device-side settings
 
 `time status`, `time enable`, and `time disable`
 

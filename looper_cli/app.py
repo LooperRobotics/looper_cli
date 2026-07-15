@@ -19,6 +19,8 @@ from looper_cli.device import (
     insightfull_pause,
     insightfull_start,
     insightfull_stop,
+    model_setting_set,
+    model_setting_show,
     monitor_status,
     network_set,
     network_show,
@@ -134,6 +136,14 @@ def command_deep_flow_enable(args) -> int:
 
 def command_deep_flow_disable(args) -> int:
     return deep_flow_set(args, DeviceSession(args.device_base_url), enabled=False)
+
+
+def command_model_setting_show(args) -> int:
+    return model_setting_show(args, DeviceSession(args.device_base_url))
+
+
+def command_model_setting_set(args) -> int:
+    return model_setting_set(args, DeviceSession(args.device_base_url))
 
 
 def command_sensor_pose_cov_show(args) -> int:
@@ -1166,6 +1176,71 @@ def build_parser() -> argparse.ArgumentParser:
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
     deep_flow_disable_parser.set_defaults(func=command_deep_flow_disable)
+
+    model_setting_parser = subparsers.add_parser(
+        "model-setting",
+        help="Detection model configuration commands",
+        **_help_text(
+            "Inspect or update the detection model settings shown on the Web Model Settings page.",
+            [
+                "python3 looper_cli.py model-setting show",
+                "python3 looper_cli.py model-setting set --enable --label-name object -y",
+                "python3 looper_cli.py model-setting set --disable -y",
+            ],
+        ),
+    )
+    model_setting_subparsers = model_setting_parser.add_subparsers(
+        dest="model_setting_command", required=True
+    )
+    model_setting_show_parser = model_setting_subparsers.add_parser(
+        "show",
+        help="Show current detection model settings",
+        **_help_text(
+            "Show the current detection model enable state, label name, and selected model file.",
+            ["python3 looper_cli.py model-setting show"],
+        ),
+    )
+    model_setting_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw model-setting JSON response",
+    )
+    model_setting_show_parser.set_defaults(func=command_model_setting_show)
+    model_setting_set_parser = model_setting_subparsers.add_parser(
+        "set",
+        help="Update detection model settings",
+        **_help_text(
+            "Update the detection model enable state and label name used by the Web Model Settings page.",
+            [
+                "python3 looper_cli.py model-setting set --enable -y",
+                "python3 looper_cli.py model-setting set --label-name person -y",
+            ],
+        ),
+    )
+    model_setting_enable_group = model_setting_set_parser.add_mutually_exclusive_group()
+    model_setting_enable_group.add_argument(
+        "--enable",
+        action="store_true",
+        help="Enable detection mode",
+    )
+    model_setting_enable_group.add_argument(
+        "--disable",
+        action="store_true",
+        help="Disable detection mode",
+    )
+    model_setting_set_parser.add_argument(
+        "--label-name",
+        help="Optional detection label name to write",
+    )
+    model_setting_set_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw JSON response after applying the change",
+    )
+    model_setting_set_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    model_setting_set_parser.set_defaults(func=command_model_setting_set)
 
     sensor_parser = subparsers.add_parser(
         "sensor",

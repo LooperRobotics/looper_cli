@@ -33,6 +33,7 @@ CALIBRATION_UPLOAD_CANDIDATES = [
 RESTORE_ENDPOINT = "/api/restore"
 CAMERA_FPS_ENDPOINT = "/api/camera-fps"
 DEEP_FLOW_ENDPOINT = "/api/deep-flow"
+MODEL_SETTING_ENDPOINT = "/api/model-setting"
 SENSOR_POSE_COV_ENDPOINT = "/api/sensor-pose-cov"
 ROS_DOMAIN_ID_ENDPOINT = "/api/ros-domain-id"
 CAMERA_CONFIG_ENDPOINT = "/api/camera-config"
@@ -857,6 +858,72 @@ def deep_flow_set(args, session: DeviceSession, enabled: bool) -> int:
         )
         raise LooperCliError(f"Deep flow update failed: {message}")
     log(payload.get("message") or f"Deep flow {action}d successfully")
+    return 0
+
+
+def model_setting_show(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, MODEL_SETTING_ENDPOINT)
+    if args.json:
+        print_json(payload)
+        return 0
+    if not isinstance(payload, dict) or not payload.get("success"):
+        raise LooperCliError("Failed to read model settings")
+
+    data = payload.get("data") or {}
+    enabled = bool(data.get("enabled"))
+    label_name = data.get("labelName") or "object"
+    current_model = data.get("currentModel") or "--"
+
+    _print_key_values(
+        "Model Settings",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Enabled", "on" if enabled else "off"),
+            ("Label Name", label_name),
+            ("Current Model", current_model),
+        ],
+    )
+    return 0
+
+
+def model_setting_set(args, session: DeviceSession) -> int:
+    payload: dict[str, object] = {}
+    if args.enable:
+        payload["enabled"] = True
+    elif args.disable:
+        payload["enabled"] = False
+
+    if args.label_name is not None:
+        payload["labelName"] = args.label_name
+
+    if not payload:
+        raise LooperCliError(
+            "Provide at least one of --enable, --disable, or --label-name"
+        )
+
+    if not args.yes:
+        summary = []
+        if "enabled" in payload:
+            summary.append("enabled" if payload["enabled"] else "disabled")
+        if args.label_name is not None:
+            summary.append(f"labelName={args.label_name}")
+        answer = input(
+            f"Apply model setting update ({', '.join(summary)})? [y/N]: "
+        ).strip().lower()
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+
+    response = _device_json_post(session, MODEL_SETTING_ENDPOINT, payload, timeout=30.0)
+    if not isinstance(response, dict) or not response.get("success"):
+        message = response.get("message") if isinstance(response, dict) else "request failed"
+        raise LooperCliError(f"Model settings update failed: {message}")
+
+    if args.json:
+        print_json(response)
+        return 0
+
+    log(response.get("message") or "Model settings updated successfully")
     return 0
 
 

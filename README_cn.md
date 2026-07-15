@@ -20,6 +20,7 @@
 - 查看/切换校准模式、上传校准参数和校准备份恢复
 - 摄像头帧率配置的查询和更新
 - 深度流（深度估计）开关的查询和切换
+- 检查和更新与 Web 模型设置页对齐的检测模型配置
 - 获取系统日志，或在无日志接口时回退到诊断快照
 
 
@@ -190,6 +191,13 @@ python3 looper_cli.py deep-flow disable -y
 # 以 JSON 格式显示深度流状态
 python3 looper_cli.py deep-flow show --json
 
+# 查看与 Web 模型设置页一致的检测模型配置
+python3 looper_cli.py model-setting show
+# 开启检测模式并更新标签名称
+python3 looper_cli.py model-setting set --enable --label-name object -y
+# 关闭检测模式
+python3 looper_cli.py model-setting set --disable -y
+
 # 查看设备所有监控的状态信息
 python3 looper_cli.py logs fetch
 # 将设备状态信息输入到文件
@@ -254,6 +262,12 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - 汇总 CPU、内存、温度、运行时长和 IP 等信息
 - 包含与 Web Time Sync 页面相同的时间同步状态
 - `--json` 会输出原始数据
+
+`model-setting show` 和 `model-setting set`
+
+- 与 Web Model Settings 页面保持一致，调用 `/api/model-setting`
+- 读取当前的 `enabled`、`labelName` 和 `currentModel`
+- 支持 `--enable`、`--disable` 和 `--label-name` 来更新设备侧配置
 
 `time status`、`time enable` 和 `time disable`
 
