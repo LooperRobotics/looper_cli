@@ -18,7 +18,8 @@ Current capability coverage:
 - Looper reboot and Insightfull start, pause, stop
 - Restore-to-factory shallow and deep recovery
 - Calibration mode status, switching, calibration parameter upload, and calibration backup restore
-- Camera FPS configuration inspection and update
+- Stereo camera configuration inspection and update
+- Central camera configuration inspection and update
 - Sensor pose covariance publish inspection and update
 - Deep flow (depth estimation) switch inspection and toggling
 - Detection model setting inspection and update, aligned with the Web Model Settings page
@@ -164,14 +165,19 @@ python3 looper_cli.py calibration upload calibration.json --endpoint /api/upload
 # Restore calibration files from backups
 python3 looper_cli.py calibration restore
 
-# View current camera FPS setting
-python3 looper_cli.py camera fps
+# List available stereo camera options first
+python3 looper_cli.py camera stereo list
+# Show the current stereo camera config
+python3 looper_cli.py camera stereo show
+# Set the stereo camera option using one of the listed values
+python3 looper_cli.py camera stereo set --option 30 -y
 
-#Set the camera frame rate to 30, with supported fps of 20, 30, 40, and 50
-python3 looper_cli.py camera fps --fps 30 -y
-
-# Display camera FPS as JSON
-python3 looper_cli.py camera fps --json
+# List available central camera options first
+python3 looper_cli.py camera central-camera list
+# Show the current central camera config
+python3 looper_cli.py camera central-camera show
+# Set the central camera option using one of the listed values
+python3 looper_cli.py camera central-camera set --option 'mjpg 1088x1920 30fps' -y
 
 # View current sensor pose covariance publish setting
 python3 looper_cli.py sensor pose-cov show
@@ -294,12 +300,19 @@ When OTA-related commands are executed, the CLI currently works as follows:
 - Looks for `.bak` files and copies them back to their original names
 - Useful for recovering previous calibration settings
 
-`camera fps`
+`camera stereo list`, `camera stereo show`, and `camera stereo set`
 
-- Query or configure the camera frame rate
-- Supports 20, 30, 40, and 50 FPS values
-- Returns the current FPS setting when called without `--fps`
-- Setting a new FPS value reboots the device to apply the change
+- Follow the same workflow as the Web camera settings page
+- First list the available stereo-camera options, then set one of those values
+- Use `camera stereo set --option <value>` to configure the device
+- The selected value is applied through the device camera FPS endpoint and reboots the device to apply the change
+
+`camera central-camera list`, `camera central-camera show`, and `camera central-camera set`
+
+- Follow the same workflow as the Web central camera settings page
+- First list the available central-camera options, then select one of those values for configuration
+- Use `camera central-camera set --option '<value>'` to configure the device
+- The selected value is applied through the device camera format endpoint and reboots the device to apply the change
 
 `deep-flow show`, `deep-flow enable`, and `deep-flow disable`
 
@@ -338,7 +351,9 @@ The current CLI covers these confirmed device-local APIs:
 - `/api/ota/ws`
 - `/api/upload` (multipart form file upload with backup support)
 - `/api/restore` (restore backup files)
-- `/api/camera-fps` (GET/POST camera FPS configuration)
+- `/api/camera-fps` (GET/POST stereo camera configuration)
+- `/api/camera-format` (GET/POST central camera configuration)
+- `/api/camera-format-options` (GET available central camera options)
 - `/api/deep-flow` (GET/POST deep flow switch configuration)
 
 ## Troubleshooting

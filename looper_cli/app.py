@@ -9,7 +9,13 @@ from looper_cli.device import (
     calibration_status,
     calibration_upload,
     calibration_restore,
+    camera_central_list,
+    camera_central_set,
+    camera_central_show,
     camera_fps,
+    camera_stereo_list,
+    camera_stereo_set,
+    camera_stereo_show,
     dds_set,
     dds_show,
     deep_flow_set,
@@ -124,6 +130,30 @@ def command_calibration_restore(args) -> int:
 
 def command_camera_fps(args) -> int:
     return camera_fps(args, DeviceSession(args.device_base_url))
+
+
+def command_camera_stereo_show(args) -> int:
+    return camera_stereo_show(args, DeviceSession(args.device_base_url))
+
+
+def command_camera_stereo_list(args) -> int:
+    return camera_stereo_list(args, DeviceSession(args.device_base_url))
+
+
+def command_camera_stereo_set(args) -> int:
+    return camera_stereo_set(args, DeviceSession(args.device_base_url))
+
+
+def command_camera_central_show(args) -> int:
+    return camera_central_show(args, DeviceSession(args.device_base_url))
+
+
+def command_camera_central_list(args) -> int:
+    return camera_central_list(args, DeviceSession(args.device_base_url))
+
+
+def command_camera_central_set(args) -> int:
+    return camera_central_set(args, DeviceSession(args.device_base_url))
 
 
 def command_deep_flow_show(args) -> int:
@@ -1084,41 +1114,101 @@ def build_parser() -> argparse.ArgumentParser:
         "camera",
         help="Camera configuration commands",
         **_help_text(
-            "Inspect or update camera FPS configuration.",
+            "Inspect or update stereo and central camera configuration.",
             [
-                "python3 looper_cli.py camera fps",
-                "python3 looper_cli.py camera fps --fps 30 -y",
+                "python3 looper_cli.py camera stereo show",
+                "python3 looper_cli.py camera stereo list",
+                "python3 looper_cli.py camera stereo set --option 30 -y",
+                "python3 looper_cli.py camera central-camera show",
+                "python3 looper_cli.py camera central-camera list",
+                "python3 looper_cli.py camera central-camera set --option 'mjpg 1088x1920 30fps' -y",
             ],
         ),
     )
     camera_subparsers = camera_parser.add_subparsers(
         dest="camera_command", required=True
     )
-    camera_fps_parser = camera_subparsers.add_parser(
-        "fps",
-        help="View or set the camera frame rate",
-        **_help_text(
-            "Get or set the camera FPS.",
-            [
-                "python3 looper_cli.py camera fps",
-                "python3 looper_cli.py camera fps --fps 30 -y",
-            ],
-        ),
+
+    camera_stereo_parser = camera_subparsers.add_parser(
+        "stereo",
+        help="Stereo camera configuration commands",
     )
-    camera_fps_parser.add_argument(
-        "--fps",
-        choices=["20", "30", "40", "50"],
-        help="Optional target FPS value: 20, 30, 40, or 50",
+    stereo_subparsers = camera_stereo_parser.add_subparsers(
+        dest="stereo_command", required=True
     )
-    camera_fps_parser.add_argument(
+
+    stereo_show_parser = stereo_subparsers.add_parser(
+        "show",
+        help="Show the current stereo camera config",
+    )
+    stereo_show_parser.add_argument(
         "--json",
         action="store_true",
-        help="Print the raw camera FPS JSON response",
+        help="Print the raw stereo camera JSON response",
     )
-    camera_fps_parser.add_argument(
+    stereo_show_parser.set_defaults(func=command_camera_stereo_show)
+
+    stereo_list_parser = stereo_subparsers.add_parser(
+        "list",
+        help="List available stereo camera options",
+    )
+    stereo_list_parser.set_defaults(func=command_camera_stereo_list)
+
+    stereo_set_parser = stereo_subparsers.add_parser(
+        "set",
+        help="Set the stereo camera config",
+    )
+    stereo_set_parser.add_argument(
+        "--option",
+        help="Stereo camera option to select, for example 20/30/40/50 or a descriptive string",
+    )
+    stereo_set_parser.add_argument(
+        "--fps",
+        help="Compatibility alias for --option",
+    )
+    stereo_set_parser.add_argument(
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
-    camera_fps_parser.set_defaults(func=command_camera_fps)
+    stereo_set_parser.set_defaults(func=command_camera_stereo_set)
+
+    camera_central_parser = camera_subparsers.add_parser(
+        "central-camera",
+        help="Central camera configuration commands",
+    )
+    central_subparsers = camera_central_parser.add_subparsers(
+        dest="central_camera_command", required=True
+    )
+
+    central_show_parser = central_subparsers.add_parser(
+        "show",
+        help="Show the current central camera config",
+    )
+    central_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the raw central camera JSON response",
+    )
+    central_show_parser.set_defaults(func=command_camera_central_show)
+
+    central_list_parser = central_subparsers.add_parser(
+        "list",
+        help="List available central camera options",
+    )
+    central_list_parser.set_defaults(func=command_camera_central_list)
+
+    central_set_parser = central_subparsers.add_parser(
+        "set",
+        help="Set the central camera config",
+    )
+    central_set_parser.add_argument(
+        "--option",
+        required=True,
+        help="Central camera option to select, for example 'mjpg 1088x1920 30fps'",
+    )
+    central_set_parser.add_argument(
+        "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+    )
+    central_set_parser.set_defaults(func=command_camera_central_set)
 
     deep_flow_parser = subparsers.add_parser(
         "deep-flow",

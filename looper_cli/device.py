@@ -2,6 +2,7 @@ import concurrent.futures
 import json
 from dataclasses import dataclass
 import os
+import re
 import statistics
 import time
 from typing import Optional
@@ -32,6 +33,8 @@ CALIBRATION_UPLOAD_CANDIDATES = [
 ]
 RESTORE_ENDPOINT = "/api/restore"
 CAMERA_FPS_ENDPOINT = "/api/camera-fps"
+CAMERA_FORMAT_ENDPOINT = "/api/camera-format"
+CAMERA_FORMAT_OPTIONS_ENDPOINT = "/api/camera-format-options"
 DEEP_FLOW_ENDPOINT = "/api/deep-flow"
 MODEL_SETTING_ENDPOINT = "/api/model-setting"
 SENSOR_POSE_COV_ENDPOINT = "/api/sensor-pose-cov"
@@ -77,6 +80,22 @@ SYSTEM_RECOVERY_ENDPOINT = "/api/system/recovery"
 
 def normalize_device_base_url(url: str) -> str:
     return url.rstrip("/")
+
+
+def normalize_stereo_camera_option(option: str) -> str:
+    value = str(option or "").strip()
+    if not value:
+        return ""
+    match = re.search(r"(\d+)\s*fps", value.lower())
+    if match:
+        return match.group(1)
+    if value.isdigit():
+        return value
+    return value
+
+
+def normalize_central_camera_option(option: str) -> str:
+    return str(option or "").strip()
 
 
 def get_device_version(device_base_url: str, timeout: float = 5.0) -> Optional[str]:
@@ -760,6 +779,145 @@ def calibration_restore(args, session: DeviceSession) -> int:
 
     message = payload.get("message") if isinstance(payload, dict) else None
     log(message or "Calibration restore completed successfully")
+    return 0
+
+
+def camera_stereo_show(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, CAMERA_FPS_ENDPOINT)
+    if not isinstance(payload, dict) or not payload.get("success", True):
+        raise LooperCliError("Failed to read stereo camera config")
+
+    data = payload.get("data") or {}
+    fps_value = data.get("fps") or "unknown"
+
+    if args.json:
+        print_json(payload)
+        return 0
+
+    _print_key_values(
+        "Stereo Camera Config",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Current Option", fps_value),
+        ],
+    )
+    return 0
+
+
+def camera_stereo_list(_args, session: DeviceSession) -> int:
+    options = [
+        "mono8 544x640 20fps",
+        "mono8 544x640 30fps",
+        "mono8 544x640 40fps",
+        "mono8 544x640 50fps",
+    ]
+    print(PRODUCT_NAME)
+    print("Stereo Camera Options")
+    for index, option in enumerate(options, 1):
+        print(f"{index}. {option}")
+    return 0
+
+
+def camera_stereo_set(args, session: DeviceSession) -> int:
+    option = normalize_stereo_camera_option(args.option or args.fps or "")
+    if not option:
+        raise LooperCliError("Provide --option or --fps")
+    if option not in {"20", "30", "40", "50"}:
+        raise LooperCliError(
+            "Invalid stereo camera option. Supported values are 20, 30, 40, or 50"
+        )
+    if not args.yes:
+        answer = input(f"Set stereo camera FPS to {option}? [y/N]: ").strip().lower()
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+
+    payload = _device_json_post(
+        session,
+        CAMERA_FPS_ENDPOINT,
+        {"fps": option},
+        timeout=30.0,
+    )
+    if isinstance(payload, dict) and not payload.get("success", True):
+        raise LooperCliError(
+            f"Stereo camera config update failed: {payload.get('message') or 'request rejected'}"
+        )
+    message = payload.get("message") if isinstance(payload, dict) else None
+    log(message or f"Stereo camera config set to {option}")
+    return 0
+
+
+def camera_central_show(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, CAMERA_FORMAT_ENDPOINT)
+    if not isinstance(payload, dict) or not payload.get("success", True):
+        raise LooperCliError("Failed to read central camera config")
+
+    data = payload.get("data") or {}
+    format_value = data.get("format") or "unknown"
+
+    if args.json:
+        print_json(payload)
+        return 0
+
+    _print_key_values(
+        "Central Camera Config",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("Current Option", format_value),
+        ],
+    )
+    return 0
+
+
+def camera_central_list(_args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, CAMERA_FORMAT_OPTIONS_ENDPOINT)
+    if not isinstance(payload, dict) or not payload.get("success", True):
+        raise LooperCliError("Failed to read central camera options")
+
+    data = payload.get("data") or {}
+    options = data.get("options") or []
+    if not isinstance(options, list):
+        raise LooperCliError("Central camera options payload is invalid")
+
+    print(PRODUCT_NAME)
+    print("Central Camera Options")
+    for index, option in enumerate(options, 1):
+        print(f"{index}. {option}")
+    return 0
+
+
+def camera_central_set(args, session: DeviceSession) -> int:
+    option = normalize_central_camera_option(args.option or "")
+    if not option:
+        raise LooperCliError("Provide --option")
+
+    options_payload = _device_json_get(session, CAMERA_FORMAT_OPTIONS_ENDPOINT)
+    if isinstance(options_payload, dict) and options_payload.get("success"):
+        data = options_payload.get("data") or {}
+        options = data.get("options") or []
+        if isinstance(options, list) and option not in options:
+            raise LooperCliError(
+                "Invalid central camera option. Use one of the values returned by 'camera central-camera list'"
+            )
+
+    if not args.yes:
+        answer = input(f"Set central camera format to {option}? [y/N]: ").strip().lower()
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+
+    payload = _device_json_post(
+        session,
+        CAMERA_FORMAT_ENDPOINT,
+        {"format": option},
+        timeout=30.0,
+    )
+    if isinstance(payload, dict) and not payload.get("success", True):
+        raise LooperCliError(
+            f"Central camera config update failed: {payload.get('message') or 'request rejected'}"
+        )
+    message = payload.get("message") if isinstance(payload, dict) else None
+    log(message or f"Central camera config set to {option}")
     return 0
 
 
