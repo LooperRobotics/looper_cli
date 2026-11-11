@@ -22,6 +22,8 @@ from looper_cli.device import (
     deep_flow_show,
     device_versions_show,
     fetch_logs,
+    hand_set,
+    hand_show,
     insightfull_pause,
     insightfull_start,
     insightfull_stop,
@@ -168,6 +170,24 @@ def command_deep_flow_disable(args) -> int:
     return deep_flow_set(args, DeviceSession(args.device_base_url), enabled=False)
 
 
+def _hand_session(args) -> DeviceSession:
+    # An explicit target must never fall back to a different reachable device.
+    target = args.device_base_url.rstrip("/") if args.device_base_url else None
+    return DeviceSession(target, resolved_base_url=target)
+
+
+def command_hand_show(args) -> int:
+    return hand_show(args, _hand_session(args))
+
+
+def command_hand_enable(args) -> int:
+    return hand_set(args, _hand_session(args), enabled=True)
+
+
+def command_hand_disable(args) -> int:
+    return hand_set(args, _hand_session(args), enabled=False)
+
+
 def command_model_setting_show(args) -> int:
     return model_setting_show(args, DeviceSession(args.device_base_url))
 
@@ -285,7 +305,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Official command-line utility for device management, OTA release discovery, "
-            "and Ota Updates on LooperRobotics Insight Series devices."
+            "and OTA updates on LooperRobotics Ego devices."
         ),
         epilog=(
             "Examples:\n"
@@ -371,6 +391,7 @@ def build_parser() -> argparse.ArgumentParser:
             "camera",
             "fps",
             "deep-flow",
+            "hand",
             "enable",
             "disable",
             "logs",
@@ -418,7 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     list_parser = subparsers.add_parser(
         "list",
-        help="List published OTA releases for Insight Series devices",
+        help="List published OTA releases for Ego devices",
         **_help_text(
             "List published OTA releases from the configured PocketBase OTA service.",
             [
@@ -1266,6 +1287,37 @@ def build_parser() -> argparse.ArgumentParser:
         "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
     )
     deep_flow_disable_parser.set_defaults(func=command_deep_flow_disable)
+
+    hand_parser = subparsers.add_parser(
+        "hand",
+        help="Ego hand landmark detection switch commands",
+        **_help_text(
+            "Read or toggle enable_hand in the Ego device's user_params.json. Changes restart Ego capture.",
+            [
+                "python3 looper_cli.py hand show",
+                "python3 looper_cli.py hand enable -y",
+                "python3 looper_cli.py hand disable -y",
+            ],
+        ),
+    )
+    hand_subparsers = hand_parser.add_subparsers(dest="hand_command", required=True)
+    hand_show_parser = hand_subparsers.add_parser(
+        "show", help="Show the saved enable_hand configuration"
+    )
+    hand_show_parser.add_argument(
+        "--json", action="store_true", help="Print the raw JSON response"
+    )
+    hand_show_parser.set_defaults(func=command_hand_show)
+    for action, function in [
+        ("enable", command_hand_enable), ("disable", command_hand_disable)
+    ]:
+        hand_action_parser = hand_subparsers.add_parser(
+            action, help=f"{action.capitalize()} hand detection and restart the camera service"
+        )
+        hand_action_parser.add_argument(
+            "-y", "--yes", action="store_true", help="Skip the confirmation prompt"
+        )
+        hand_action_parser.set_defaults(func=function)
 
     model_setting_parser = subparsers.add_parser(
         "model-setting",

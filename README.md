@@ -1,8 +1,8 @@
-# LooperRobotics Insight Series CLI
+# LooperRobotics Ego CLI
 
 ## Overview
 
-`looper_cli.py` is the official command-line utility for managing LooperRobotics Insight Series devices.
+`looper_cli.py` is the command-line utility for managing LooperRobotics Ego devices, bundled with the `zyh/egodev` branch.
 
 It can be used for device inspection, OTA upgrades, and common maintenance tasks when the Web management page is unavailable, when scripted execution is needed, or when device operations should be repeatable.
 
@@ -22,6 +22,7 @@ Current capability coverage:
 - Central camera configuration inspection and update
 - Sensor pose covariance publish inspection and update
 - Deep flow (depth estimation) switch inspection and toggling
+- Ego hand landmark detection (`enable_hand`) switch inspection and toggling
 - Detection model setting inspection and update, aligned with the Web Model Settings page
 - System log retrieval, with diagnostic snapshot fallback when the log API is unavailable
 
@@ -195,6 +196,13 @@ python3 looper_cli.py deep-flow disable -y
 # Display deep flow state as JSON
 python3 looper_cli.py deep-flow show --json
 
+# Show the saved hand detection switch
+python3 looper_cli.py hand show
+python3 looper_cli.py hand show --json
+# Enable or disable hand detection and restart the camera service
+python3 looper_cli.py hand enable -y
+python3 looper_cli.py hand disable -y
+
 # Show detection model settings from the Web Model Settings API
 python3 looper_cli.py model-setting show
 # Enable detection mode and update the label name
@@ -320,6 +328,22 @@ When OTA-related commands are executed, the CLI currently works as follows:
 - `show` reports the current state; `--json` outputs the raw response payload
 - `enable` and `disable` write `/api/deep-flow` and restart the camera service to apply the change
 
+`hand show`, `hand enable`, and `hand disable`
+
+- Requires an updated device backend providing `/api/hand` and this CLI version
+- Reads or writes only `enable_hand` in `/userdata/install/share/insight_full/config/user_params.json`
+- Keeps the existing `quad_hand_camera`, thresholds, and other settings; hand detection is independent of `perception_engine`
+- Reuses Ego capture restart after saving, via `/userdata/x5-capture/stop-camera.sh` and `start-camera.sh`
+- Reuses Ego recording occupancy checks and the camera configuration lock; recording and concurrent video format changes return a busy error
+- `show` reports the saved configuration, rather than model readiness or detected hands
+- EgoHalo requires firmware containing LooperHub `98fc74f` (PR #313) and its hand models
+- Omitting `-y` prompts for confirmation. Restart failures report that the setting was saved but could not be applied
+- An explicit `--device-base-url` targets only that device; place it before `hand`:
+
+```bash
+python3 looper_cli.py --device-base-url http://169.254.10.1 hand enable -y
+```
+
 `logs fetch`
 
 - Attempts known log download APIs first
@@ -355,6 +379,7 @@ The current CLI covers these confirmed device-local APIs:
 - `/api/camera-format` (GET/POST central camera configuration)
 - `/api/camera-format-options` (GET available central camera options)
 - `/api/deep-flow` (GET/POST deep flow switch configuration)
+- `/api/hand` (GET/POST `enable_hand` hand landmark detection switch)
 
 ## Troubleshooting
 

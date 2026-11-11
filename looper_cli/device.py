@@ -36,6 +36,7 @@ CAMERA_FPS_ENDPOINT = "/api/camera-fps"
 CAMERA_FORMAT_ENDPOINT = "/api/camera-format"
 CAMERA_FORMAT_OPTIONS_ENDPOINT = "/api/camera-format-options"
 DEEP_FLOW_ENDPOINT = "/api/deep-flow"
+HAND_ENDPOINT = "/api/hand"
 MODEL_SETTING_ENDPOINT = "/api/model-setting"
 SENSOR_POSE_COV_ENDPOINT = "/api/sensor-pose-cov"
 ROS_DOMAIN_ID_ENDPOINT = "/api/ros-domain-id"
@@ -1016,6 +1017,45 @@ def deep_flow_set(args, session: DeviceSession, enabled: bool) -> int:
         )
         raise LooperCliError(f"Deep flow update failed: {message}")
     log(payload.get("message") or f"Deep flow {action}d successfully")
+    return 0
+
+
+def hand_show(args, session: DeviceSession) -> int:
+    payload = _device_json_get(session, HAND_ENDPOINT)
+    if not isinstance(payload, dict) or not payload.get("success"):
+        raise LooperCliError("Failed to read hand detection configuration")
+    data = payload.get("data")
+    if not isinstance(data, dict) or not isinstance(data.get("enable_hand"), bool):
+        raise LooperCliError("Invalid hand detection configuration response")
+    if args.json:
+        print_json(payload)
+        return 0
+    _print_key_values(
+        "Ego Hand Detection Configuration",
+        [
+            ("Device Endpoint", session.ensure_resolved()),
+            ("enable_hand", "true" if data["enable_hand"] else "false"),
+        ],
+    )
+    return 0
+
+
+def hand_set(args, session: DeviceSession, enabled: bool) -> int:
+    action = "enable" if enabled else "disable"
+    if not args.yes:
+        answer = input(
+            f"Proceed to {action} hand detection? The camera service will restart. [y/N]: "
+        ).strip().lower()
+        if answer not in {"y", "yes"}:
+            log("Aborted by user")
+            return 1
+    payload = _device_json_post(
+        session, HAND_ENDPOINT, {"enable_hand": enabled}, timeout=60.0
+    )
+    if not isinstance(payload, dict) or not payload.get("success"):
+        message = payload.get("message") if isinstance(payload, dict) else "request failed"
+        raise LooperCliError(f"Hand detection update failed: {message}")
+    log(payload.get("message") or "Hand detection configuration updated")
     return 0
 
 

@@ -1,8 +1,8 @@
-# LooperRobotics Insight 系列 CLI
+# LooperRobotics Ego CLI
 
 ## 概述
 
-`looper_cli.py` 是用于管理 LooperRobotics Insight 系列设备的官方命令行工具。
+`looper_cli.py` 是用于管理 LooperRobotics Ego 设备的命令行工具，此版本随 `zyh/egodev` 分支提供。
 
 当 Web 管理页面不可用、需要脚本化执行、或者希望把设备运维流程做成可重复操作时，可以使用它来完成设备检查、OTA 升级和常见维护任务。
 
@@ -21,6 +21,7 @@
 - 立体相机配置的查询和更新
 - 中央相机配置的查询和更新
 - 深度流（深度估计）开关的查询和切换
+- Ego 手部关键点检测开关（`enable_hand`）的查询和切换
 - 检查和更新与 Web 模型设置页对齐的检测模型配置
 - 获取系统日志，或在无日志接口时回退到诊断快照
 
@@ -198,6 +199,13 @@ python3 looper_cli.py deep-flow disable -y
 # 以 JSON 格式显示深度流状态
 python3 looper_cli.py deep-flow show --json
 
+# 查看已保存的手部检测开关
+python3 looper_cli.py hand show
+python3 looper_cli.py hand show --json
+# 开启或关闭手部检测，保存后重启相机服务
+python3 looper_cli.py hand enable -y
+python3 looper_cli.py hand disable -y
+
 # 查看与 Web 模型设置页一致的检测模型配置
 python3 looper_cli.py model-setting show
 # 开启检测模式并更新标签名称
@@ -324,6 +332,22 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - `show` 查看当前状态，`--json` 输出原始响应数据
 - `enable` 与 `disable` 写入 `/api/deep-flow` 并重启相机服务以使配置生效
 
+`hand show`、`hand enable` 与 `hand disable`
+
+- 调用设备的 `/api/hand` 接口；需要部署包含该接口的新后端及新版 CLI
+- 只读写 `/userdata/install/share/insight_full/config/user_params.json` 中的 `enable_hand` 布尔值
+- 沿用 `quad_hand_camera`、检测阈值和其他已有配置；手部检测独立于 `perception_engine`
+- 保存后复用 Ego 采集服务的重启流程，执行 `/userdata/x5-capture/stop-camera.sh` 和 `start-camera.sh`
+- 复用 Ego 的录制占用检查和相机配置锁；正在录制或切换视频格式时返回占用错误
+- `show` 显示已保存的配置，不代表模型已加载或已检测到手部
+- EgoHalo 固件需包含 LooperHub `98fc74f`（PR #313）的手部管线及配套模型
+- 省略 `-y` 时会先询问确认；重启失败会返回错误，并说明配置已保存
+- 指定 `--device-base-url` 时只操作该设备，参数放在 `hand` 前，例如：
+
+```bash
+python3 looper_cli.py --device-base-url http://169.254.10.1 hand enable -y
+```
+
 `logs fetch`
 
 - 会优先尝试已知的日志下载接口
@@ -360,6 +384,7 @@ python3 looper_cli.py ros topic set --node-name insight_full --camera-namespace 
 - `/api/camera-format` (GET/POST 中央相机配置)
 - `/api/camera-format-options` (GET 可用中央相机选项)
 - `/api/deep-flow` (GET/POST 深度流开关配置)
+- `/api/hand` (GET/POST `enable_hand` 手部关键点检测开关)
 
 ## 故障排查
 

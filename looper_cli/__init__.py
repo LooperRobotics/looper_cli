@@ -1,4 +1,4 @@
-PRODUCT_NAME = "LooperRobotics Insight Series CLI"
+PRODUCT_NAME = "LooperRobotics Ego CLI"
 CLI_VERSION = "2.0.0"
 PB_BASE_URL = "https://looper-robotics.com/pb"
 DEFAULT_PER_PAGE = 50
